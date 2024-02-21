@@ -13,6 +13,8 @@ REDUCE_PREDICT_KEYS = ['ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_
 UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfold_seq_mask', 'ktbench_label_unfold_seq']
 QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_label_seq']
 
+CAT2ORIGINAL = 'original'
+
 
 def label2int(df, extras):
     df.label =  (df.label >= 0.5).astype(np.float32)
@@ -42,8 +44,9 @@ def normalize_time(df, extras):
     else:
         print("[WARNING] start_timestamp not in dataframe")
     return df, extras
-def _factorise_df(df, already_factorized, feature2type, ignore=[]):
+def _factorise_df(df, extras, already_factorized, feature2type, ignore=[]):
     #tokens
+    extras[CAT2ORIGINAL] = extras.get(CAT2ORIGINAL, {})
     columns = [c for c in df.columns if feature2type[c] == 'token'
               and c != 'order_id']
     for c in columns:
@@ -53,7 +56,9 @@ def _factorise_df(df, already_factorized, feature2type, ignore=[]):
             cat = already_factorized[c]
             df[c] = df[c].apply(lambda x: cat.get_loc(x))
         else:
-            df[c], _ = pd.factorize(df[c])
+            df[c], cat = pd.factorize(df[c])
+            extras[CAT2ORIGINAL][c] = {k:v for k, v in enumerate(cat)}
+            already_factorized[c] = cat
 
     #token_seq
     columns = [c for c in df.columns if feature2type[c] == 'token_seq'
@@ -61,32 +66,25 @@ def _factorise_df(df, already_factorized, feature2type, ignore=[]):
     for c in columns:
         if c in ignore:
             continue
+        assert c not in already_factorized
         le = preprocessing.LabelEncoder()
-        tmp = df[c]
-        tmp = le.fit(df[c].explode())
-        print('column name')
-        print(df[c])
-        print(c)
+        le.fit(df[c].explode())
+        extras[CAT2ORIGINAL][c] = {k:v for k, v in enumerate(le.classes_)}
         df[c] = df[c].apply(lambda x: le.transform(x).tolist())
+        already_factorized[c] = None
 
-    return df
+    return df, extras, already_factorized
+
 def factorize(df, extras):
     feature2type = df.attrs['feature2type']
     df_exer = extras['exer_df']
-    df_exer['exer_id'], cat_exer = pd.factorize(df_exer['exer_id'])
-    factorized = {}
-    factorized['exer_id'] = cat_exer
+    already_factorized = {}
+    df_exer, extras, already_factorized = _factorise_df(df_exer, extras, already_factorized, feature2type)
     if 'stu_df' in extras:
         df_stu = extras['stu_df']
-        df_stu['stu_id'], stu_cat = pd.factorize(df_stu['stu_id'])
-        factorized['stu_id'] = stu_cat
+        df, extras, already_factorized = _factorise_df(df_stu, extras, already_factorized, feature2type)
     #tokens
-    df = _factorise_df(df, factorized, feature2type)
-    extras['exer_df'] = _factorise_df(df_exer, factorized, feature2type, ignore=factorized.keys())
-    #TODO  for now we don't use extra student features
-    #if 'stu_df' in extras:
-    #    df_stu = extras['stu_df'] 
-    #    extras['stu_df'] = _factorise_df(df_stu, factorized, feature2type, ignore=factorized.keys())
+    df, extras, already_factorized = _factorise_df(df, extras, already_factorized, feature2type)
     return df, extras
 
 
@@ -202,6 +200,11 @@ def process_middata(middata_dir= "./middata", outpath="./middata.yaml"):
     for func in PIPELINE:
         df, extras = func(df, extras)
         
+    # Save original mappings
+    if CAT2ORIGINAL in extras:
+        savepath = Path(outpath).parent / 'out2original.yaml'
+        yamld.write_metadata(savepath, extras[CAT2ORIGINAL])
+
     if 'start_timestamp' in df:
         print("normalize start_timestamp...")
         df['start_timestamp'] = df['start_timestamp'].apply(lambda l: [x - min(l) for x in l])

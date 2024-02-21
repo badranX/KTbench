@@ -1,3 +1,7 @@
+# -----------------------------------------------------------------------------
+# Description: This file was adapted from both EduStudio and pykt-toolkit (MIT License).
+# -----------------------------------------------------------------------------
+
 import pandas as pd
 import argparse
 from pathlib import Path
@@ -32,41 +36,13 @@ def process(read_dir, outputfolder='middata'):
     df["index"] = range(df.shape[0])
     df = df.dropna(subset=["Anon Student Id", "Questions", "KC(Default)", "First Transaction Time", "Correct First Attempt"])
     df = df[df["Correct First Attempt"].isin([0,1])]
-    df = df[["index", "Anon Student Id", "Questions", "KC(Default)", "First Transaction Time", "Correct First Attempt"]]
     
     #map
     df["KC(Default)"] = df["KC(Default)"].apply(lambda x: x.replace("~~", "_").split('_') )
     df["First Transaction Time"] = df["First Transaction Time"].apply(change2timestamp)
     df["order_id"] = df[["First Transaction Time", "index"]].values.tolist()
 
-
-    if False:
-        data = []
-        data = {}
-        ui_df = df.groupby('Anon Student Id', sort=False)
-        for ui in ui_df:
-            u, curdf = ui[0], ui[1]
-            curdf.loc[:, "Fiyirst Transaction Time"] = curdf.loc[:, "First Transaction Time"].apply(lambda t: change2timestamp(t))
-            curdf = curdf.sort_values(by=["First Transaction Time", "index"])
-
-            seq_skills = [x.replace("~~", "_").split('_') for x in curdf["KC(Default)"].values]
-            seq_ans = curdf["Correct First Attempt"].values.tolist()
-            seq_start_time = curdf["First Transaction Time"].values.tolist()
-            seq_problems = curdf["Questions"].values.tolist()
-            seq_len = len(seq_ans)
-            seq_use_time = ["NA"]
-            
-            assert seq_len == len(seq_problems) == len(seq_skills) == len(seq_ans) == len(seq_start_time)
-
-            tmp = {
-                'exer_seq': [seq_problems],
-                'kc_seq': [seq_skills],
-                'label_seq': [format_list2str(seq_ans)],
-                'start_time': [format_list2str(seq_start_time)],
-                'cost_time': [format_list2str(seq_use_time)],
-            } 
-        
-        data = {k: data.get(k,[]) + v for k,v in tmp.items()}
+    df = df[["order_id", "Anon Student Id", "Questions", "KC(Default)", "First Transaction Time", "Correct First Attempt"]]
 
     #write_txt(write_file, data)
     #df = pd.DataFrame(data)
@@ -84,10 +60,11 @@ def process(read_dir, outputfolder='middata'):
                         'class_id': 'token', 'kc_seq': 'token_seq', 'assignment_id': 'token_seq'
         
     }
-    #kc_id is long string, this factorize it
+
     df_exer = df[['exer_id', 'kc_seq']]
-    test, cat_kcs = pd.factorize(df_exer.explode('kc_seq')['kc_seq'])
-    df_exer.loc[:,'kc_seq'] = df_exer['kc_seq'].apply(lambda x: list(map(cat_kcs.get_loc, x)))
+    #kc_id is long string, this factorize it
+    #test, cat_kcs = pd.factorize(df_exer.explode('kc_seq')['kc_seq'])
+    #df_exer.loc[:,'kc_seq'] = df_exer['kc_seq'].apply(lambda x: list(map(cat_kcs.get_loc, x)))
     
     df_exer.loc[df_exer.astype(str).drop_duplicates().index]
     df_inter = df.drop(columns=['kc_seq'])

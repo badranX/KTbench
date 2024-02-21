@@ -1,14 +1,14 @@
+# -----------------------------------------------------------------------------
+# Description: This file was adapted from both EduStudio and pykt-toolkit (MIT License).
+# -----------------------------------------------------------------------------
+
 import pandas as pd
 import os
 import argparse
 import random
 from pathlib import Path
 import yamld
-r"""
-R2M_ASSIST_2017
-#####################################
-ASSIST_2017 dataset preprocess
-"""
+
 
 def process(datafolder="original_dataset", contents_dir=None, outputfolder="middata", encoding="utf-8"):
     #EdNet Nan is -1 for most fields

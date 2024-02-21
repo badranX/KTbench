@@ -1,16 +1,12 @@
+# -----------------------------------------------------------------------------
+# Description: This file was adapted from both EduStudio and pykt-toolkit (MIT License).
+# -----------------------------------------------------------------------------
+
 import pandas as pd
 import argparse
 from pathlib import Path
 import yamld
 
-r"""
-This code was originally copied from EduStudio
-source: https://github.com/HFUT-LEC/EduStudio
-
-R2M_ASSIST_0910
-#####################################
-ASSIST_0910 dataset preprocess
-"""
 OUTPUTFOLDER = "output"
 
 def process(datafolder="original_dataset", outputfolder="middata", encoding="latin-1"):
@@ -37,6 +33,7 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
             data[['school_id', 'group_id']] = data['class_id'].str.split('_', expand=True)
             data['school_id'] = data['school_id'].astype(int)
             data['group_id'] = data['group_id'].astype(int)
+            data['exeu'] = data['group_id'].astype(int)
             data.sort_values(['school_id', 'group_id'], inplace=True)
 
         # 映射非 ms_first_response 列
@@ -137,20 +134,11 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
     grouped_skills['kc_seq'] = grouped_skills['kc_seq'].astype(str)
     grouped_skills = grouped_skills.groupby('exer_id')['kc_seq'].agg(','.join).reset_index()
 
-    # 合并 assignment_id
-    grouped_assignments = df_exer[['exer_id', 'assignment_id']]
-    grouped_assignments.drop_duplicates(inplace=True)
-    grouped_assignments.sort_values(by='assignment_id', inplace=True)
-    grouped_assignments['exer_id'] = grouped_assignments['exer_id'].astype(str)
-    grouped_assignments['assignment_id'] = grouped_assignments['assignment_id'].astype(str)
-    grouped_assignments = grouped_assignments.groupby('exer_id')['assignment_id'].agg(
-        ','.join).reset_index()
 
     # 合并结果
-    df_exer = pd.merge(grouped_skills, grouped_assignments, on='exer_id', how='left')
+    df_exer = grouped_skills
     df_exer['exer_id'] = df_exer['exer_id'].astype(int)
     df_exer['kc_seq'] = df_exer['kc_seq'].str.split(',').apply(lambda x: list(map(int, x)))
-    df_exer['assignment_id'] = df_exer['assignment_id'].str.split(',')
     df_exer.sort_values(by='exer_id', inplace=True)
     # print(df_exer)
 

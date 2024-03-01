@@ -131,6 +131,7 @@ def gen_kc_seq(df, extras):
     sorted(mapping, key=lambda x: x[0])
     kc_seq_unpadding = list(map(lambda x: x[1], mapping))
     kc_count = len(set(kc_seq_unpadding))
+    kc_seq_unpadding = list(map(list , kc_seq_unpadding))
     exer_count = len(df_exer['exer_id'].unique())
 
     #assertions

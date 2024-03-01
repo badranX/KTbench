@@ -82,7 +82,7 @@ def factorize(df, extras):
     df_exer, extras, already_factorized = _factorise_df(df_exer, extras, already_factorized, feature2type)
     if 'stu_df' in extras:
         df_stu = extras['stu_df']
-        df, extras, already_factorized = _factorise_df(df_stu, extras, already_factorized, feature2type)
+        df_stu, extras, already_factorized = _factorise_df(df_stu, extras, already_factorized, feature2type)
     #tokens
     df, extras, already_factorized = _factorise_df(df, extras, already_factorized, feature2type)
     return df, extras
@@ -124,22 +124,20 @@ def write_processed_data(path, df, extras):
 
 def gen_kc_seq(df, extras):
     df_exer = extras['exer_df']
-    tmp_df_Q = df_exer.set_index('exer_id')
+    mapping = df_exer[['exer_id', 'kc_seq']].copy()
+    mapping['kc_seq'] = mapping['kc_seq'].apply(tuple)
+    mapping.drop_duplicates(inplace=True)
+    mapping = mapping.values.tolist()
+    sorted(mapping, key=lambda x: x[0])
+    kc_seq_unpadding = list(map(lambda x: x[1], mapping))
+    kc_count = len(set(kc_seq_unpadding))
+    exer_count = len(df_exer['exer_id'].unique())
 
-
-    #TODO counting vs largest index?
-    #kc_count = len(df_exer['kc_seq'].explode().unique())
-    print(df_exer.kc_seq)
-    m = df_exer.kc_seq.explode().max()
-    print(m)
-    print(type(m))
-    kc_count = int(df_exer.kc_seq.explode().max()+1)
-    exer_count = int(df.exer_id.max() + 1)
-
+    #assertions
     
-    kc_seq_unpadding = [
-        (tmp_df_Q.loc[exer_id].kc_seq if exer_id in tmp_df_Q.index else []) for exer_id in range(exer_count)
-    ]
+    unique = len(set(map(tuple, kc_seq_unpadding)))
+    print('unique kcs : ', unique)
+    
     
     meta = extras.get('meta', {})
     extras['meta'] = meta
@@ -198,6 +196,7 @@ def process_middata(middata_dir= "./middata", outpath="./middata.yaml"):
     
     print("start processing middata...")
     for func in PIPELINE:
+        print(df.columns)
         df, extras = func(df, extras)
         
     # Save original mappings

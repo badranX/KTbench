@@ -1,3 +1,4 @@
+from torch.utils.data import DataLoader
 import torch
 from datasets import Dataset
 import pandas as pd
@@ -6,7 +7,8 @@ from sklearn import preprocessing
 
 from ..pad_utils import splitter, padder, padder_list
 from .map_yamld import unfold_mapper, map_yamld, map_yamld_unfold, features_to_tensors, lens2mask
-from .middata_manager import download_dataset
+from .middata_manager import download_dataset, gitdownload
+from ..train import Trainer
 
 from sklearn.model_selection import KFold
 import shutil
@@ -16,6 +18,7 @@ from dataclasses import dataclass, field
 import yamld
 import os
 
+
 packagepath = [p for p in Path(__file__).parents if p.name == "ktbench"][0]
 
 from dataclasses import dataclass
@@ -24,7 +27,18 @@ from dataclasses import dataclass
 REDUCE_PREDICT_KEYS = ['ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_unfold_seq_mask', 'ktbench_label_seq'] 
 UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfold_seq_mask', 'ktbench_label_unfold_seq']
 QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_label_seq']
+MASKED_UNFOLD_LABELS = ['ktbench_masked_label_unfold_seq']
 
+SEQUENCE_AXIS = {'ktbench_exer_seq_mask': -1,
+                  'ktbench_kc_seq_mask': -2,
+                  'ktbench_unfold_seq_mask': -1,
+                   'ktbench_label_seq': -1,
+                'ktbench_exer_unfold_seq': -1,
+                'ktbench_kc_unfold_seq': -1,
+                'ktbench_unfold_seq_mask': -1,
+                'ktbench_label_unfold_seq': -1,
+                'ktbench_exer_seq': -1,
+                'ktbench_kc_seq':-2}
 
 def rename_columns(ds, featuremap):
     features = ds.features.values()
@@ -38,7 +52,7 @@ def rename_columns(ds, featuremap):
 class Pipeline():
     def __init__(self, cfg):
         self.cfg = cfg
-
+        self.cfg.dataset2model_feature_map = self.cfg.model_cls.MODEL_FEATURE_MAP
         self.window_size = cfg.window_size
         self.dataset_name = cfg.dataset_name
         self.is_unfold = cfg.is_unfold
@@ -72,7 +86,9 @@ class Pipeline():
         
         self.splits = [0.6, 0.5] if not hasattr(cfg, 'splits') else cfg.splits
         self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
+        self.multi2one_kcs = False if not hasattr(cfg, 'multi2one_kcs') else cfg.multi2one_kcs
 
+        self.add_hide_label = False if not hasattr(cfg, 'add_hide_label') else cfg.add_hide_label
         self.init_tgt_features()
 
         
@@ -81,7 +97,9 @@ class Pipeline():
 
         if self.is_unfold:
             tgt_features = UNFOLD_KEYS + extra_features
-            if self.cfg.is_reduce_eval:
+            if self.add_hide_label:
+                tgt_features += MASKED_UNFOLD_LABELS
+            if self.cfg.eval_method == Trainer.EVAL_UNFOLD_REDUCE:
                 eval_tgt_features = list(set(tgt_features + REDUCE_PREDICT_KEYS))
             else:
                 eval_tgt_features = tgt_features
@@ -154,13 +172,16 @@ class Pipeline():
     @staticmethod
     def mapper(x, window_size):
         exer_seq, lens, idx = padder(
-            x['exer_id'],  out_maxlen=window_size
+            x['exer_id'],  out_maxlen=window_size, use_out_maxlen=True
         )
         label_seq, _, _ = padder(
             x['label'],
-       out_maxlen=window_size
+       out_maxlen=window_size, use_out_maxlen=True
         )
-        stu_id = x['stu_id'][idx]
+        if idx:
+            stu_id = x['stu_id'][idx]
+        else:
+            stu_id = x['stu_id']
 
         ret_dict = {
             'stu_id': stu_id,
@@ -172,14 +193,20 @@ class Pipeline():
 
     def is_middata_ready(self):
         return self.yaml_dataset_path.exists()
-
-    def yamld2dataset(self):
+    
+    def get_meta(self):
         yamld_file = self.yaml_dataset_path
         meta = yamld.read_metadata(yamld_file)
-        readgen = yamld.read_generator(yamld_file)
-        ds = Dataset.from_generator(readgen, cache_dir="./.cache_dir")
+        return meta
+
+    def process_dataset(self, ds, meta=None):
+        if not meta:
+            yamld_file = self.yaml_dataset_path
+            meta = yamld.read_metadata(yamld_file)
         #TODO
         ds = ds.with_format("torch", device= self.process_device)
+        map1 = lambda x: self.mapper(x, window_size=self.window_size)
+        ds = ds.map(map1, batched=True, remove_columns=ds.column_names)
 
         problem2KCs = meta['problem2KCs']
         if type(problem2KCs) is dict:
@@ -189,19 +216,94 @@ class Pipeline():
             assert tuple(range(len(keys))) == keys
             problem2KCs = list(next(d))
 
-        problem2KCs, kc_seq_lens, idx = padder_list(problem2KCs, dtype=int, to_tensor=True)
-        #TODO middata processing
-        meta['kc_seq_padding'] = problem2KCs
-        meta['kc_seq_lens'] = kc_seq_lens
-        max_kcs_per_exer = kc_seq_lens.max()
-        meta['max_kcs_per_exer'] = max_kcs_per_exer
-        meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+        if self.multi2one_kcs:
+            problem2KCs = list(map(tuple, problem2KCs))
+            problem2KCs, _ = pd.factorize(pd.Series(problem2KCs))
+
+            meta['n_kc'] = max(problem2KCs) + 1
+            problem2KCs = list(map(lambda x: [x], problem2KCs))
+            meta['kc_seq_padding'] = problem2KCs
+            meta['kc_seq_lens'] = [[1]]*len(problem2KCs)
+            max_kcs_per_exer = 1
+            meta['max_kcs_per_exer'] = max_kcs_per_exer
+            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+
+            self.cfg.n_kc=meta['n_kc']
+        else:
+            problem2KCs, kc_seq_lens, idx = padder_list(problem2KCs, dtype=int, to_tensor=True)
+            #TODO middata processing
+            meta['kc_seq_padding'] = problem2KCs
+            meta['kc_seq_lens'] = kc_seq_lens
+            max_kcs_per_exer = kc_seq_lens.max()
+            meta['max_kcs_per_exer'] = max_kcs_per_exer
+            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)
+        if self.is_unfold:
+            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label)
+            ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
+            if self.is_unfold_fixed_window:
+                map3 = lambda x: unfold_mapper(x, window_size=self.window_size)
+                ds = ds.map(map3, batched=True, remove_columns=ds.column_names)
+        else:
+            map2 = lambda x: map_yamld(x, meta)
+            ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
+
+        rename = dict(zip(ds.column_names, map(lambda x: 'ktbench_' + x, ds.column_names)))
+        ds = ds.rename_columns(rename)
+        #ds = ds.select_columns(all_features)
+        return ds
+        
+
+    def yamld2dataset(self):
+        yamld_file = self.yaml_dataset_path
+        meta = yamld.read_metadata(yamld_file)
+        self.meta = meta
+        readgen = yamld.read_generator(yamld_file)
+
+        ds = Dataset.from_generator(readgen, cache_dir="./.cache_dir")
+        #TODO
+        ds = ds.with_format("torch", device= self.process_device)
+
         map1 = lambda x: self.mapper(x, window_size=self.window_size)
         ds = ds.map(map1, batched=True, remove_columns=ds.column_names)
+
+        problem2KCs = meta['problem2KCs']
+        if type(problem2KCs) is dict:
+            problem2KCs = {int(k): v for k, v in problem2KCs.items()}
+            d = zip(*sorted(problem2KCs.items(), key=lambda x: x[0]))
+            keys = next(d)
+            assert tuple(range(len(keys))) == keys
+            problem2KCs = list(next(d))
+
+        if self.multi2one_kcs:
+            problem2KCs = list(map(tuple, problem2KCs))
+            problem2KCs, _ = pd.factorize(problem2KCs)
+
+            meta['n_kc'] = max(problem2KCs) + 1
+            problem2KCs = list(map(lambda x: [x], problem2KCs))
+            meta['kc_seq_padding'] = torch.tensor(problem2KCs, dtype=int)
+            kc_seq_lens = torch.tensor([1]*len(problem2KCs), dtype=int)
+            meta['kc_seq_lens'] = kc_seq_lens
+            max_kcs_per_exer = 1
+            meta['max_kcs_per_exer'] = max_kcs_per_exer
+            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+
+            self.cfg.n_kc=meta['n_kc']
+        else:
+            problem2KCs, kc_seq_lens, idx = padder_list(problem2KCs, dtype=int, to_tensor=True)
+            #TODO middata processing
+            meta['kc_seq_padding'] = problem2KCs
+            meta['kc_seq_lens'] = kc_seq_lens
+            max_kcs_per_exer = kc_seq_lens.max()
+            meta['max_kcs_per_exer'] = max_kcs_per_exer
+            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+
+        meta['max_exer_window_size'] = self.window_size
+        features_to_tensors(meta)
         if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta)
+            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label)
             ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
             if self.is_unfold_fixed_window:
                 map3 = lambda x: unfold_mapper(x, window_size=self.window_size)
@@ -221,13 +323,17 @@ class Pipeline():
 
         if not self.is_middata_ready():
             shutil.rmtree(self.yaml_dataset_path, ignore_errors=True)
-            self.yaml_dataset_path = download_dataset(self.dataset_name, self.dataset_dir)
+            #self.yaml_dataset_path = download_dataset(self.dataset_name, self.dataset_dir)
+            self.yaml_dataset_path = gitdownload(self.dataset_name, self.dataset_dir)
 
         meta = yamld.read_metadata(self.yaml_dataset_path)
 
         self.cfg.n_exer=meta['n_exer']
         self.cfg.n_kc=meta['n_kc']
-        self.cfg.n_stu=meta['n_stu']
+        if 'n_stu' in meta:
+            self.cfg.n_stu = meta['n_stu']
+        else:
+            self.cfg.n_stu= -1
         if not self.window_size:
             print('[WARNING] window_size was not provided, default to max')
             self.cfg.window_size = meta['max_exer_window_size'] 

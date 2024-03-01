@@ -3,13 +3,18 @@ import torch.nn.functional as F
 from torch.nn.utils.rnn import pad_sequence
 import functools
 
-def padder(seqs, out_maxlen=-1, padding_value=0):
+def padder(seqs, out_maxlen=-1, padding_value=0, use_out_maxlen=False):
+    if not isinstance(seqs, list):
+        seqs = list(seqs)
     lens = torch.tensor(list(map(len, seqs)), dtype=int)
     maxlen = lens.max()
     idxs = None
     if out_maxlen > 0:
         if maxlen <= out_maxlen:
-            seqs[0] = F.pad(seqs[0], (0, maxlen - seqs[0].shape[0]), "constant", padding_value)
+            if use_out_maxlen:
+                seqs[0] = F.pad(seqs[0], (0, out_maxlen - seqs[0].shape[0]), "constant", padding_value)
+            else:
+                seqs[0] = F.pad(seqs[0], (0, maxlen - seqs[0].shape[0]), "constant", padding_value)
         else:
             #this won't be reached in training
             nsplits = -(-lens//out_maxlen)
@@ -21,7 +26,7 @@ def padder(seqs, out_maxlen=-1, padding_value=0):
             tmp = map(lambda x: split_seq(*x), zip(seqs, nsplits))
 
             seqs = functools.reduce(lambda x,y: x + y, tmp, [])
-            idxs = functools.reduce(lambda x,y: x + [y]*y, nsplits, [])
+            idxs = functools.reduce(lambda x,y: x + [y[0]]*y[-1], enumerate(nsplits), [])
             lens = torch.tensor(list(map(len, seqs)), dtype=int)
 
     seq = pad_sequence(seqs, batch_first=True, padding_value=padding_value)

@@ -21,7 +21,8 @@ DATASET_URLs = {
 GIT_REPO = 'https://github.com/badranX/KTdata'
 
 dataset2gitbranch = {
-    'AKT_assist2017': 'data/AKT_assist2017'
+    'AKT_assist2017': 'data/AKT_assist2017',
+    'assist2009': 'data/assist2009'
 }
 
 def gitdownload(dataset_name, download_path):

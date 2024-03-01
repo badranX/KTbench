@@ -22,8 +22,15 @@ class Params:
 
 
 class DKT(BaseModel):
+
+    MODEL_FEATURE_MAP = {
+         'ktbench_kc_unfold_seq' : 'exer_seq' ,
+         'ktbench_unfold_seq_mask' : 'mask_seq' ,
+         'ktbench_label_unfold_seq' : 'label_seq' ,
+        }
     def __init__(self, cfg, params=Params()):
         super().__init__(cfg, params)
+
         self.n_item = self.n_kc
         self.build_model()
 
@@ -71,6 +78,11 @@ class DKT(BaseModel):
             'predict': y_pd,
             'target': y_gt
         }
+
+    @torch.no_grad()
+    def ktbench_trace(self, **kwargs):
+        y_pd = self(**kwargs)
+        return y_pd
 
     @torch.no_grad()
     def ktbench_predict(self, **kwargs):

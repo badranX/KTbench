@@ -28,6 +28,7 @@ REDUCE_PREDICT_KEYS = ['ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_
 UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfold_seq_mask', 'ktbench_label_unfold_seq']
 QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_label_seq']
 MASKED_UNFOLD_LABELS = ['ktbench_masked_label_unfold_seq']
+TEACHER_MASKS= ['ktbench_teacher_unfold_seq_mask']
 
 SEQUENCE_AXIS = {'ktbench_exer_seq_mask': -1,
                   'ktbench_kc_seq_mask': -2,
@@ -89,6 +90,7 @@ class Pipeline():
         self.multi2one_kcs = False if not hasattr(cfg, 'multi2one_kcs') else cfg.multi2one_kcs
 
         self.add_hide_label = False if not hasattr(cfg, 'add_hide_label') else cfg.add_hide_label
+        self.add_teacher_mask = False if not hasattr(cfg, 'add_teacher_mask') else cfg.add_teacher_mask
         self.init_tgt_features()
 
         
@@ -99,6 +101,8 @@ class Pipeline():
             tgt_features = UNFOLD_KEYS + extra_features
             if self.add_hide_label:
                 tgt_features += MASKED_UNFOLD_LABELS
+            if self.add_teacher_mask:
+                tgt_features += TEACHER_MASKS
             if self.cfg.eval_method == Trainer.EVAL_UNFOLD_REDUCE:
                 eval_tgt_features = list(set(tgt_features + REDUCE_PREDICT_KEYS))
             else:
@@ -241,7 +245,7 @@ class Pipeline():
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)
         if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label)
+            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label or self.add_teacher_mask)
             ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
             if self.is_unfold_fixed_window:
                 map3 = lambda x: unfold_mapper(x, window_size=self.window_size)
@@ -303,7 +307,7 @@ class Pipeline():
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)
         if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label)
+            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label or self.add_teacher_mask)
             ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
             if self.is_unfold_fixed_window:
                 map3 = lambda x: unfold_mapper(x, window_size=self.window_size)

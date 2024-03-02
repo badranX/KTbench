@@ -200,6 +200,7 @@ def map_yamld_unfold(entry, meta, is_hide_label=False, is_attention=False):
                 double_mask = tmp[tmp>0]
                 entry.masked_label_unfold_seq = entry.label_unfold_seq.clone()
                 entry.masked_label_unfold_seq[double_mask==2] = 2
+                entry.teacher_unfold_seq_mask = (double_mask == 2).int()
 
         if is_attention:
                 #generate attention masks

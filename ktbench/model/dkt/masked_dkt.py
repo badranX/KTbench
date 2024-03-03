@@ -18,7 +18,7 @@ class Params:
     num_layers = 1
     dropout_rate = 0.2
     rnn_or_lstm = 'lstm'
-    separate_qa = False
+    separate_qa = True
 
 
 
@@ -43,9 +43,15 @@ class MaskedDKT(BaseModel):
             self.n_item , self.prm.emb_size
         )
 
-        self.answer_emb = nn.Embedding(
-            3, self.prm.emb_size
-        )
+        if self.prm.separate_qa:
+            self.answer_emb = nn.Embedding(
+                self.n_item * 3, self.prm.emb_size
+            )
+        else:
+            self.answer_emb = nn.Embedding(
+                3, self.prm.emb_size
+            )
+
         if self.prm.rnn_or_lstm == 'rnn':
             self.seq_model = nn.RNN(
                 self.prm.emb_size, self.prm.hidden_size, 
@@ -63,8 +69,11 @@ class MaskedDKT(BaseModel):
         label_seq = kwargs['ktbench_masked_label_unfold_seq']
         maxer = exer_seq.max().item()
         #input_x = self.exer_emb(exer_seq + label_seq.long() * self.n_item)
-        answers = self.answer_emb(label_seq.long())
-        input_x = self.exer_emb(exer_seq) + answers 
+        if self.prm.separate_qa:
+            input_x = self.answer_emb(exer_seq + label_seq.long()* self.n_item)
+        else:
+            answers = self.answer_emb(label_seq.long())
+            input_x = self.exer_emb(exer_seq) + answers 
         output, _ = self.seq_model(input_x)
         output = self.dropout_layer(output)
         y_pd = self.fc_layer(output).sigmoid()

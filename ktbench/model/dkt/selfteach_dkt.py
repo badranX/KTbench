@@ -19,6 +19,7 @@ class Params:
     num_layers = 1
     dropout_rate = 0.2
     rnn_or_lstm = 'lstm'
+    only_eval = True
 
 
 
@@ -56,6 +57,10 @@ class SelfTeachDKT(BaseModel):
             input_x = self.exer_emb(exer_seq + y_pd.long() * self.n_item)
             return input_x.squeeze(1)
 
+        self.train_seq_model = nn.LSTM(
+                self.prm.emb_size, self.prm.hidden_size, 
+                self.prm.num_layers, batch_first=True
+            )
         self.seq_model = LSTMModel(
         self.prm.emb_size, self.prm.hidden_size, 
         self.prm.num_layers, teacher_fn=teacher_fn)
@@ -68,7 +73,13 @@ class SelfTeachDKT(BaseModel):
         teacher_mask = kwargs['ktbench_teacher_unfold_seq_mask']
         input_x = self.exer_emb(exer_seq + label_seq.long() * self.n_item)
         kwargs['exer_seq'] = exer_seq
-        output, _ = self.seq_model(input_x, teacher_mask,**kwargs)
+        if self.training:
+            if self.prm.only_eval:
+                output, _ = self.train_seq_model(input_x)
+            else:
+                output, _ = self.seq_model(input_x, teacher_mask,**kwargs)
+        else:
+            output, _ = self.seq_model(input_x, teacher_mask,**kwargs)
         output = self.dropout_layer(output)
         y_pd = self.fc_layer(output).sigmoid()
         return y_pd

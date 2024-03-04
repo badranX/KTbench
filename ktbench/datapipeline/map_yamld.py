@@ -21,15 +21,11 @@ def unfold_mapper(x, window_size):
 
                         new[k] =  seq
         if idx:
-                stu_id = x['stu_id'][idx]
-        else:
-                stu_id = x['stu_id']
+                new['stu_id'] = x['stu_id'][idx]
 
-        ret_dict = {
-            'stu_id': stu_id,
-        }
-        new.update(ret_dict)
-        return new
+
+        x.update(new)
+        return x
 
 def features_to_tensors(entry):
         int_features = ['lens_seq',
@@ -222,3 +218,66 @@ def map_yamld_unfold(entry, meta, is_hide_label=False, is_attention=False):
         
         #tmp = {f"ktbench_{key}": value for key, value in tmp.items()}
         return entry.__dict__
+
+ALLINONETAG = 'allinone_ktbench_'
+
+def map_allinone_before_batch(entry, orignal_len):
+        entry = SimpleNamespace(**entry)
+
+        new = SimpleNamespace()
+
+        expanded_label_seq = entry.ktbench_label_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
+        expanded_exer_seq = entry.ktbench_exer_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
+        
+        new.ktbench_kc_unfold_seq = []
+        new.ktbench_unfold_seq_mask = []
+        new.ktbench_label_unfold_seq = []
+        new.ktbench_exer_unfold_seq = []
+
+        new.ktbench_allinone_label = []
+        new.ktbench_allinone_id = []
+        new.ktbench_allinone_tgt_index = []
+        for idx  in range(2, entry.ktbench_exer_seq_mask.shape[-1]):
+                if entry.ktbench_exer_seq_mask[idx] == 0:
+                        break
+
+                allone_id = entry.ktbench_idx*entry.ktbench_label_seq.shape[-1]  + idx
+                end_label = entry.ktbench_label_seq[idx]
+
+                out = entry.ktbench_kc_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
+                out_mask = torch.ones_like(out) 
+                label_unfold_seq = expanded_label_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
+                exer_unfold_seq = expanded_exer_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
+
+                tmplen = entry.ktbench_kc_seq_mask[idx].sum(-1)
+                seqlen = exer_unfold_seq.shape[-1] - tmplen
+                indices = [list(range(seqlen)) + [seqlen+j] for j in range(tmplen)]
+                #tgt = torch.zeros(seqlen+1)
+                #tgt[-1] = 1
+
+                new.ktbench_allinone_label += [end_label]*tmplen
+                new.ktbench_allinone_id += [allone_id]*tmplen
+                #new.ktbench_allinone_mask += [tgt]*tmplen
+                new.ktbench_allinone_tgt_index += [seqlen]*tmplen
+
+                new.ktbench_kc_unfold_seq += list(out[None,indices].squeeze(0))
+                new.ktbench_unfold_seq_mask += list(out_mask[None, indices].squeeze(0))
+                new.ktbench_label_unfold_seq += list(label_unfold_seq[None,indices].squeeze(0))
+                new.ktbench_exer_unfold_seq += list(exer_unfold_seq[None,indices].squeeze(0))
+                #torch.expand(tmplen, entry.kc_unfold_seq.shape[-1])
+                               
+        tmp = {f"{ALLINONETAG}{key}": value for key, value in new.__dict__.items()}
+        ret = entry.__dict__
+        ret.update(tmp)
+        return ret
+
+def map_allinone_batch(entry):
+        for k, v in entry.items():
+                if k.startswith(ALLINONETAG):
+                        replicate = [len(v) for v in entry[k]]
+                        break
+        new = {k : [[vv]*rep for rep ,vv in zip(replicate, v)] for k, v in entry.items() if not k.startswith(ALLINONETAG)}
+        new2= {k[len(ALLINONETAG):]: v for  k, v in entry.items() if k.startswith(ALLINONETAG)}
+        new.update(new2)
+        new = {k: [item for vv in v for item in vv] for k, v in new.items()}
+        return new

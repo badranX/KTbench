@@ -7,6 +7,8 @@ from sklearn import preprocessing
 
 from ..pad_utils import splitter, padder, padder_list
 from .map_yamld import unfold_mapper, map_yamld, map_yamld_unfold, features_to_tensors, lens2mask
+from .map_yamld import map_allinone_batch, map_allinone_before_batch
+
 from .middata_manager import download_dataset, gitdownload
 from ..train import Trainer
 
@@ -91,6 +93,7 @@ class Pipeline():
 
         self.add_hide_label = False if not hasattr(cfg, 'add_hide_label') else cfg.add_hide_label
         self.add_teacher_mask = False if not hasattr(cfg, 'add_teacher_mask') else cfg.add_teacher_mask
+        self.cfg.all_in_one = False if not hasattr(cfg, 'all_in_one') else cfg.all_in_one
         self.init_tgt_features()
 
         
@@ -109,6 +112,7 @@ class Pipeline():
                 eval_tgt_features = tgt_features
             
             if self.is_unfold_fixed_window:
+                assert self.cfg.eval_method != Trainer.EVAL_UNFOLD_REDUCE
                 #Mostly it is done this way in other works
                 tgt_features = extra_features + [x for x in tgt_features if 'unfold' in x or x == 'stu_id']
                 eval_tgt_features = extra_features + [x for x in eval_tgt_features if 'unfold' in x or x == 'stu_id']
@@ -130,6 +134,15 @@ class Pipeline():
     def split_dataset(self, ds):
         l_train_ds  = []
         l_valid_ds  = []
+        
+        def prepare_all_in_one(test_ds):
+            new_column = range(len(test_ds))
+            test_ds= test_ds.add_column("ktbench_idx", new_column)
+            map = lambda x: map_allinone_before_batch(x, len(test_ds))
+            test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
+            test_ds = test_ds.remove_columns("ktbench_idx") 
+            test_ds = test_ds.map(map_allinone_batch, batched=True, remove_columns=test_ds.column_names)
+            return test_ds
 
         if self.kfolds == 1:
 
@@ -137,9 +150,13 @@ class Pipeline():
             test_ds, valid_ds = extra_ds.train_test_split(train_size=self.splits[1], shuffle=True, seed=32).values()
             train_ds = train_ds.select_columns(self.tgt_features)
             valid_ds = valid_ds.select_columns(self.eval_tgt_features)
-            test_ds = test_ds.select_columns(self.eval_tgt_features)
-            train_ds = rename_columns(train_ds, self.cfg.dataset2model_feature_map)
+            if self.cfg.all_in_one:
+                test_ds = prepare_all_in_one(test_ds)
+            else:
+                test_ds = test_ds.select_columns(self.eval_tgt_features)
+
             test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
+            train_ds = rename_columns(train_ds, self.cfg.dataset2model_feature_map)
             valid_ds = rename_columns(valid_ds, self.cfg.dataset2model_feature_map)
             l_train_ds.append(train_ds)
             l_valid_ds.append(valid_ds)
@@ -147,7 +164,11 @@ class Pipeline():
         else:
 
             rest_ds, test_ds = ds.train_test_split(train_size=(1-self.splits[0])*self.splits[1], shuffle=True, seed=32).values()
-            test_ds = test_ds.select_columns(self.eval_tgt_features)
+
+            if self.cfg.all_in_one:
+                test_ds = prepare_all_in_one(test_ds)
+            else:
+                test_ds = test_ds.select_columns(self.eval_tgt_features)
             test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
             folds = KFold(n_splits=self.kfolds, shuffle=True, random_state=2)
             splits = folds.split(np.zeros(rest_ds.num_rows))

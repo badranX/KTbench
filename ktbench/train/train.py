@@ -160,15 +160,16 @@ class Trainer():
         key_ktbench_label_unfold_seq = dataset2model_feature_map.get(*2*('ktbench_label_unfold_seq',))
         mask = kwargs[unfold_seq_mask]
 
-        assert (not idxslice.start or idxslice.start <=1) and (not idxslice.stop or idxslice.stop >= -1)
-        start = 1 if idxslice.start is None else None
-        stop = -1 if idxslice.stop is None else None
-        y_pd = y_pd[...,start:stop]
-        y_pd = y_pd[mask[...,1:-1] == 1]
+        #assert (not idxslice.start or idxslice.start <=1) and (not idxslice.stop or idxslice.stop >= -1)
+        #start = 1 if idxslice.start is None else None
+        #stop = -1 if idxslice.stop is None else None
+        #y_pd = y_pd[...,start:stop]
+        #y_pd = y_pd[...,idxslice]
+        y_pd = y_pd[mask[...,idxslice] == 1]
 
-        y_gt = kwargs[key_ktbench_label_unfold_seq][:, 1:-1]  #remove 1st question
+        y_gt = kwargs[key_ktbench_label_unfold_seq][:, idxslice]
 
-        y_gt = y_gt[mask[:,1:-1]==1]
+        y_gt = y_gt[mask[:, idxslice]==1]
         
         return {
             'predict': y_pd,
@@ -269,8 +270,8 @@ class Trainer():
                         print(f"[INFO] stopped training at epoch number {epoch}, no improvement in last {self.n_stop_check} epochs")
                         break
             if not self.is_step_test:
-                #tests = self.test(kfold)
-                #print("Test fold {}:".format(kfold), tests)
+                tests = self.test(kfold)
+                print("Test fold {}:".format(kfold), tests)
                 pass
             else:
                 pass
@@ -296,10 +297,9 @@ class Trainer():
 
     def _evaluate(self, epoch_num, data_loader, description="[Inference]"):
         self.model.eval()
-        
+        preds = []
+        trgts = []
         for batch_id, batch in enumerate(tqdm(data_loader, desc=description)):
-            preds = []
-            trgts = []
             y_pd, idxslice = self.model.ktbench_predict(**batch)
             batch_eval = self.eval_method(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
 
@@ -312,8 +312,59 @@ class Trainer():
         return {"auc": compute_auc(trgts, preds)}
     
     def test(self, kfold):
-        return self._evaluate(kfold, data_loader=self.test_dataloader, description="[Test]")
+        if not self.cfg.all_in_one:
+            return self._evaluate(kfold, data_loader=self.test_dataloader, description="[Test]")
+        else:
+            return self._all_in_one_test(kfold, data_loader=self.test_dataloader)
 
+
+    def _all_in_one_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
+        key_exer_seq_mask = dataset2model_feature_map.get(*2*('ktbench_exer_seq_mask',)) 
+        key_kc_seq_mask = dataset2model_feature_map.get(*2*('ktbench_kc_seq_mask',))
+        key_unfold_seq_mask = dataset2model_feature_map.get(*2*('ktbench_unfold_seq_mask',))
+        key_ktbench_label_seq = dataset2model_feature_map.get(*2*('ktbench_label_seq',))
+
+        mask = kwargs[key_exer_seq_mask]
+        kc_seq_mask = kwargs[key_kc_seq_mask]
+        unfold_seq_mask = kwargs[key_unfold_seq_mask]
+        tgt_index = kwargs['ktbench_allinone_tgt_index']
+        label = kwargs['ktbench_allinone_label']
+        ids = kwargs['ktbench_allinone_id']
+        start =  idxslice.start if idxslice.start  else 0
+
+        tgt_index -= start
+        #remove indices that was not calculated by the model
+        max_len = y_pd.shape[-1] 
+        y_pd = y_pd[tgt_index < max_len, :] 
+        tgt_index = tgt_index[tgt_index < max_len] 
+        y_pd = y_pd.gather(dim=-1, index=tgt_index.unsqueeze(-1))
+        ret  = {
+            'predict': y_pd,
+            'target': label,
+            'ids': ids
+        
+        }
+        return ret
+
+    def _all_in_one_test(self, kfold, data_loader):
+        self.model.eval()
+        preds = {}
+        trgts = {}
+        for batch_id, batch in enumerate(tqdm(data_loader, desc='all_in_one test')):
+            y_pd, idxslice = self.model.ktbench_predict(**batch)
+            batch_eval = self._all_in_one_eval(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
+            batch_ids = batch_eval['ids']
+            batch_preds = batch_eval['predict']
+            batch_tgt = batch_eval['target']
+            preds.update({id: preds.get(id, []) + [pred] for id, pred in zip(batch_ids, batch_preds)})
+            trgts.update(dict(zip(batch_ids, batch_tgt)))
+
+        preds = map(lambda x: sum(x)/len(x), preds.values())
+        trgts = list(trgts.values())
+        preds = torch.hstack(list(preds)).cpu().detach().numpy()
+        trgts = torch.hstack(trgts).cpu().detach().numpy()
+
+        return {"auc": compute_auc(trgts, preds)}
 
     def step_unfold_test(self, fold_num):
         extras = {} if not hasattr(self.cfg, 'extra_sequence_axis') else self.cfg.extra_sequence_axis

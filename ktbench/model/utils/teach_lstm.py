@@ -93,7 +93,7 @@ class LSTMModel(nn.Module):
         if torch.cuda.is_available():
             c0 = Variable(torch.zeros(self.layer_dim, x.size(0), self.hidden_dim).cuda())
         else:
-            c0 = Variable(torch.zeros(self.layer_dim, x.size(0), hidden_dim))
+            c0 = Variable(torch.zeros(self.layer_dim, x.size(0), self.hidden_dim))
 
                     
        

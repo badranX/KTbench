@@ -219,9 +219,9 @@ def map_yamld_unfold(entry, meta, is_hide_label=False, is_attention=False):
         #tmp = {f"ktbench_{key}": value for key, value in tmp.items()}
         return entry.__dict__
 
-ALLINONETAG = 'allinone_ktbench_'
 
-def map_allinone_before_batch(entry, orignal_len):
+ALLINONETAG = 'allinone_ktbench_'
+def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
         entry = SimpleNamespace(**entry)
 
         new = SimpleNamespace()
@@ -229,14 +229,26 @@ def map_allinone_before_batch(entry, orignal_len):
         expanded_label_seq = entry.ktbench_label_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
         expanded_exer_seq = entry.ktbench_exer_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
         
+        ret = entry.__dict__
         new.ktbench_kc_unfold_seq = []
+        ret.pop('ktbench_kc_unfold_seq', None)
         new.ktbench_unfold_seq_mask = []
+        ret.pop('ktbench_unfold_seq_mask', None)
         new.ktbench_label_unfold_seq = []
+        ret.pop('ktbench_label_unfold_seq', None)
         new.ktbench_exer_unfold_seq = []
+        ret.pop('ktbench_exer_unfold_seq', None)
 
         new.ktbench_allinone_label = []
         new.ktbench_allinone_id = []
         new.ktbench_allinone_tgt_index = []
+
+        if is_hide_label:
+                new.masked_label_unfold_seq = []
+                ret.pop('masked_label_unfold_seq', None)
+                new.teacher_unfold_seq_mask = []
+                ret.pop('teacher_unfold_seq_mask', None)
+                clone_kc_seq_mask = entry.kc_seq_mask.clone()
         for idx  in range(2, entry.ktbench_exer_seq_mask.shape[-1]):
                 if entry.ktbench_exer_seq_mask[idx] == 0:
                         break
@@ -249,11 +261,26 @@ def map_allinone_before_batch(entry, orignal_len):
                 label_unfold_seq = expanded_label_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
                 exer_unfold_seq = expanded_exer_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
 
+
                 tmplen = entry.ktbench_kc_seq_mask[idx].sum(-1)
                 seqlen = exer_unfold_seq.shape[-1] - tmplen
                 indices = [list(range(seqlen)) + [seqlen+j] for j in range(tmplen)]
                 #tgt = torch.zeros(seqlen+1)
                 #tgt[-1] = 1
+
+
+                if is_hide_label:
+                        #original
+                        tmp = clone_kc_seq_mask[:idx]
+                        tmp[...,:-1][tmp[...,1:]==1] = 2
+                        double_mask = tmp[tmp>0]
+
+                        masked_label_unfold_seq = label_unfold_seq.clone()
+                        masked_label_unfold_seq[double_mask==2] = 2
+                        teacher_unfold_seq_mask = (double_mask == 2).int()
+
+                        new.masked_label_unfold_seq += list(teacher_unfold_seq_mask[None,indices].squeeze(0))
+                        new.teacher_unfold_seq_mask += list(masked_label_unfold_seq[None,indices].squeeze(0))
 
                 new.ktbench_allinone_label += [end_label]*tmplen
                 new.ktbench_allinone_id += [allone_id]*tmplen

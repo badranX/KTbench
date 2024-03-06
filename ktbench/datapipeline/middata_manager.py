@@ -22,7 +22,9 @@ GIT_REPO = 'https://github.com/badranX/KTdata'
 
 dataset2gitbranch = {
     'AKT_assist2017': 'data/AKT_assist2017',
-    'assist2009': 'data/assist2009'
+    'assist2009': 'data/assist2009',
+    'corr_assist2009': 'data/corr_assist2009',
+    'dualingo2018_es_en': 'data/dualingo2018_es_en'
 }
 
 def gitdownload(dataset_name, download_path):

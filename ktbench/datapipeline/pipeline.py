@@ -11,6 +11,7 @@ from .map_yamld import map_allinone_batch, map_allinone_before_batch
 
 from .middata_manager import download_dataset, gitdownload
 from ..train import Trainer
+from ..trainlogs import KTBENCH_FOLDER
 
 from sklearn.model_selection import KFold
 import shutil
@@ -83,7 +84,9 @@ class Pipeline():
             self.dataset_dir = Path(cfg.dataset_path).parent
             self.yaml_dataset_path = Path(cfg.dataset_path)
         else:
-            self.dataset_dir = Path.cwd()
+            self.dataset_dir  = Path.cwd() / KTBENCH_FOLDER
+            if not self.dataset_dir.exists():
+                self.dataset_dir.mkdir()
             self.yaml_dataset_path = self.dataset_dir / (self.dataset_name + '.yaml')
 
         

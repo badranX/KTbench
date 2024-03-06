@@ -2,14 +2,20 @@ from datetime import datetime
 from pathlib import Path
 import torch
 import json
+KTBENCH_FOLDER = ".ktbench"
 
 class LogsHandler:
-    def __init__(self, config, checkpoint_main_folder=None):
-
-        self.checkpoint_main_folder  = Path.cwd() if not checkpoint_main_folder else Path(checkpoint_main_folder)
+    def __init__(self, config, checkpoint_parent_folder=None):
+        current_directory = Path.cwd()
+        if checkpoint_parent_folder:
+            self.checkpoint_parent_folder = checkpoint_parent_folder
+        else:
+            self.checkpoint_parent_folder  = current_directory / KTBENCH_FOLDER
+            if not self.checkpoint_parent_folder.exists():
+                self.checkpoint_parent_folder.mkdir()
         self.datasetname = config.dataset_name
         self.windowsize = config.window_size
-        self.checkpoint_folder = self.checkpoint_main_folder / f"{self.datasetname}_{self.windowsize}"
+        self.checkpoint_folder = self.checkpoint_parent_folder / f"{self.datasetname}_{self.windowsize}"
         self.timestamp = datetime.now().strftime("%S-%M-%H--%d-%m-%Y")
         self.current_checkpoint_folder = self.checkpoint_folder / self.timestamp
 
@@ -46,8 +52,8 @@ class LogsHandler:
 
         return model, optimizer, checkpoint['epoch']
 
-    def load_best_model(self, ModelClass):
-        best_model_filename = self.checkpoint_folder / "best_model.pth"
+    def load_best_model(self, ModelClass, kfold):
+        best_model_filename = self.checkpoint_folder / f"best_model_fold_{kfold}.pth"
 
         # Load best model state
         checkpoint = torch.load(best_model_filename)
@@ -56,8 +62,8 @@ class LogsHandler:
 
         return model
 
-    def save_best_model(self, model, best_epoch):
-        best_model_filename = self.checkpoint_folder / "best_model.pth"
+    def save_best_model(self, model, best_epoch, kfold):
+        best_model_filename = self.checkpoint_folder / f"best_model_fold_{kfold}.pth"
 
         # Save best model state
         torch.save({

@@ -94,7 +94,6 @@ class Trainer():
         self.device =cfg.device
         self.traincfg = traincfg
         self.is_padded = False if not hasattr(traincfg, 'is_padded') else traincfg.is_padded
-        self.is_step_test = False if not hasattr(traincfg, 'is_step_test') else traincfg.is_step_test
         self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
         self.model = self.traincfg.model
         self.n_stop_check = 10  if not hasattr(traincfg,'n_stop_check') else traincfg.n_stop_check
@@ -238,7 +237,8 @@ class Trainer():
         best_auc = -1
         best_epoch = -1
 
-        eval_logs = {}
+        eval_logs = []
+        test_logs = []
         for kfold in range(1, self.kfolds + 1):
             self.init_dataloader(kfold)
             print(f"[INFO] training start at kfold {kfold} out of {self.kfolds} folds...")
@@ -252,7 +252,7 @@ class Trainer():
                 #    eval_logs['epoch'] = []
                 #    eval_logs.update({k: [] for k in evals.keys()})
                 evals['epoch'] = epoch
-                eval_logs.update({k: eval_logs.get(k,[]) + [v] for k, v in evals.items()})
+                eval_logs.append(evals)
 
                 print(losses)
                 print(evals)
@@ -262,21 +262,23 @@ class Trainer():
                 if auc > best_auc:
                     best_auc = auc
                     best_epoch = epoch
-                    self.logs.save_best_model(self.model, best_epoch)
+                    self.logs.save_best_model(self.model, best_epoch, kfold)
                     AUCs = []
 
                 if len(AUCs) >= self.n_stop_check:
                     if max(AUCs) < best_auc:
                         print(f"[INFO] stopped training at epoch number {epoch}, no improvement in last {self.n_stop_check} epochs")
                         break
-            if not self.is_step_test:
-                tests = self.test(kfold)
-                print("Test fold {}:".format(kfold), tests)
-                pass
-            else:
-                pass
+                    
+            self.model = self.logs.load_best_model(self.model.__class__, kfold)
+            tests = self.test(kfold)
+            tests.update({'kfold': kfold})
+            test_logs.append(tests)
+            print(tests)
+            yamld.write_dataframe(self.logs.current_checkpoint_folder/"test.yaml", pd.DataFrame(test_logs))
 
-        yamld.write_dataframe(self.logs.current_checkpoint_folder/"evals.yaml", pd.DataFrame(eval_logs))
+        yamld.write_dataframe(self.logs.current_checkpoint_folder/"test.yaml", pd.DataFrame(test_logs))
+        yamld.write_dataframe(self.logs.current_checkpoint_folder/"valid.yaml", pd.DataFrame(eval_logs))
 
 
     def train(self, epoch_num):
@@ -313,7 +315,7 @@ class Trainer():
     
     def test(self, kfold):
         if not self.cfg.all_in_one:
-            return self._evaluate(kfold, data_loader=self.test_dataloader, description="[Test]")
+            return self._evaluate(kfold, data_loader=self.test_dataloader, description=f"[Test fold {kfold}]")
         else:
             return self._all_in_one_test(kfold, data_loader=self.test_dataloader)
 

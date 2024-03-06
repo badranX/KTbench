@@ -66,6 +66,12 @@ def compute_accuracy(all_target, all_pred):
     all_pred[all_pred <= 0.5] = 0.0
     return metrics.accuracy_score(all_target, all_pred)
 
+def compute_metrics(all_target, all_pred):
+    return {
+        'auc': compute_auc(all_target, all_pred),
+        'acc': compute_accuracy(all_target, all_pred)
+    }
+
 
 class Trainer():
 
@@ -232,17 +238,17 @@ class Trainer():
 
 
     def start(self):
-        AUCs = []
         models = []
-        best_auc = -1
-        best_epoch = -1
 
-        eval_logs = []
         test_logs = []
         for kfold in range(1, self.kfolds + 1):
             self.init_dataloader(kfold)
             print(f"[INFO] training start at kfold {kfold} out of {self.kfolds} folds...")
             print(f"-------")
+            eval_logs = []
+            AUCs = []
+            best_auc = -1
+            best_epoch = -1
             for epoch in range(1, self.n_epoch+1):
                 losses = self.train(epoch)
                 evals = self.evaluate(epoch)
@@ -272,7 +278,9 @@ class Trainer():
                     
             self.model = self.logs.load_best_model(self.model.__class__, kfold)
             tests = self.test(kfold)
-            tests.update({'kfold': kfold})
+            tests.update({'kfold': kfold, 
+                          'best_epcoh': best_epoch,
+                          'num_epochs': len(eval_logs)})
             test_logs.append(tests)
             print(tests)
             yamld.write_dataframe(self.logs.current_checkpoint_folder/"test.yaml", pd.DataFrame(test_logs))
@@ -311,7 +319,7 @@ class Trainer():
         preds = torch.hstack(preds).cpu().detach().numpy()
         trgts = torch.hstack(trgts).cpu().detach().numpy()
 
-        return {"auc": compute_auc(trgts, preds)}
+        return compute_metrics(trgts, preds)
     
     def test(self, kfold):
         if not self.cfg.all_in_one:
@@ -366,7 +374,7 @@ class Trainer():
         preds = torch.hstack(list(preds)).cpu().detach().numpy()
         trgts = torch.hstack(trgts).cpu().detach().numpy()
 
-        return {"auc": compute_auc(trgts, preds)}
+        return compute_metrics(trgts, preds)
 
     def step_unfold_test(self, fold_num):
         extras = {} if not hasattr(self.cfg, 'extra_sequence_axis') else self.cfg.extra_sequence_axis
@@ -395,4 +403,4 @@ class Trainer():
         preds = torch.hstack(preds).cpu().detach().numpy()
         trgts = torch.hstack(trgts).cpu().detach().numpy()
 
-        return {"auc": compute_auc(trgts, preds)}
+        return compute_metrics(trgts, preds)

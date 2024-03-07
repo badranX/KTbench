@@ -144,7 +144,7 @@ def map_yamld_unfold(entry, meta, is_attention=False):
         return entry.__dict__
 
 
-def map_yamld_unfold(entry, meta, is_hide_label=False, is_attention=False):
+def map_yamld_unfold(entry, meta, is_mask_label=False, is_teacher_mask=False, is_attention=False):
         """
         --naming convention
         a sequence ends with _seq
@@ -190,13 +190,14 @@ def map_yamld_unfold(entry, meta, is_hide_label=False, is_attention=False):
         entry.label_unfold_seq = label_unfold_seq
         entry.exer_unfold_seq = exer_unfold_seq
         
-        if is_hide_label:
+        if is_mask_label or is_teacher_mask:
                 tmp = kc_seq_mask.clone()
                 tmp[...,:-1][tmp[...,1:]==1] = 2
                 double_mask = tmp[tmp>0]
                 entry.masked_label_unfold_seq = entry.label_unfold_seq.clone()
                 entry.masked_label_unfold_seq[double_mask==2] = 2
-                entry.teacher_unfold_seq_mask = (double_mask == 2).int()
+                if is_teacher_mask:
+                        entry.teacher_unfold_seq_mask = (double_mask == 2).int()
 
         if is_attention:
                 #generate attention masks

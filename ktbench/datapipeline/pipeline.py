@@ -71,7 +71,7 @@ class Pipeline():
     def __init__(self, cfg):
         self.cfg = cfg
 
-        self.seed = self.cfg.__dict__.get('seed', SEED)
+        self.seed = getattr(self.cfg, 'seed', SEED)
         seed_everything(self.seed)
         self.cfg.dataset2model_feature_map = self.cfg.model_cls.MODEL_FEATURE_MAP
         self.window_size = cfg.window_size
@@ -103,7 +103,7 @@ class Pipeline():
         self.kfolds = getattr(cfg, 'kfold', 1)
         self.multi2one_kcs = getattr(cfg, 'multi2one_kcs', False)
 
-        self.add_hide_label = getattr(cfg, 'add_hide_label', False)
+        self.add_mask_label = getattr(cfg, 'add_mask_label', False)
         self.add_teacher_mask = getattr(cfg, 'add_teacher_mask', False)
         self.cfg.all_in_one = getattr(cfg, 'all_in_one', False)
         self.init_tgt_features()
@@ -114,7 +114,7 @@ class Pipeline():
 
         if self.is_unfold:
             tgt_features = UNFOLD_KEYS + extra_features
-            if self.add_hide_label:
+            if self.add_mask_label:
                 tgt_features += MASKED_UNFOLD_LABELS
             if self.add_teacher_mask:
                 tgt_features += TEACHER_MASKS
@@ -203,7 +203,6 @@ class Pipeline():
         }
 
         self.cfg.__dict__.update(ret)
-        ret.update(ret)
         return SimpleNamespace(**ret)
         
 
@@ -237,63 +236,6 @@ class Pipeline():
         meta = yamld.read_metadata(yamld_file)
         return meta
 
-    def process_dataset(self, ds, meta=None):
-        if not meta:
-            yamld_file = self.yaml_dataset_path
-            meta = yamld.read_metadata(yamld_file)
-        #TODO
-        ds = ds.with_format("torch", device= self.process_device)
-        map1 = lambda x: self.mapper(x, window_size=self.window_size)
-        ds = ds.map(map1, batched=True, remove_columns=ds.column_names)
-
-        problem2KCs = meta['problem2KCs']
-        if type(problem2KCs) is dict:
-            problem2KCs = {int(k): v for k, v in problem2KCs.items()}
-            d = zip(*sorted(problem2KCs.items(), key=lambda x: x[0]))
-            keys = next(d)
-            assert tuple(range(len(keys))) == keys
-            problem2KCs = list(next(d))
-
-        if self.multi2one_kcs:
-            problem2KCs = list(map(tuple, problem2KCs))
-            problem2KCs, _ = pd.factorize(pd.Series(problem2KCs))
-
-            meta['n_kc'] = max(problem2KCs) + 1
-            problem2KCs = list(map(lambda x: [x], problem2KCs))
-            meta['kc_seq_padding'] = problem2KCs
-            meta['kc_seq_lens'] = [[1]]*len(problem2KCs)
-            max_kcs_per_exer = 1
-            meta['max_kcs_per_exer'] = max_kcs_per_exer
-            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
-
-            self.cfg.n_kc=meta['n_kc']
-        else:
-            problem2KCs, kc_seq_lens, idx = padder_list(problem2KCs, dtype=int, to_tensor=True)
-            #TODO middata processing
-            meta['kc_seq_padding'] = problem2KCs
-            meta['kc_seq_lens'] = kc_seq_lens
-            max_kcs_per_exer = kc_seq_lens.max()
-            meta['max_kcs_per_exer'] = max_kcs_per_exer
-            meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
-
-        meta['max_exer_window_size'] = self.window_size
-        features_to_tensors(meta)
-        if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label or self.add_teacher_mask)
-            ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
-            if self.is_unfold_fixed_window:
-                map3 = lambda x: unfold_mapper(x, window_size=self.window_size)
-                ds = ds.map(map3, batched=True, remove_columns=ds.column_names)
-        else:
-            map2 = lambda x: map_yamld(x, meta)
-            ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
-
-        rename = dict(zip(ds.column_names, map(lambda x: 'ktbench_' + x, ds.column_names)))
-        ds = ds.rename_columns(rename)
-        #ds = ds.select_columns(all_features)
-        return ds
-        
-
     def yamld2dataset(self):
         yamld_file = self.yaml_dataset_path
         meta = yamld.read_metadata(yamld_file)
@@ -301,7 +243,9 @@ class Pipeline():
         readgen = yamld.read_generator(yamld_file)
 
         ds = Dataset.from_generator(readgen, cache_dir="./.cache_dir")
-        #TODO
+        return self.process_dataset(ds, meta)
+
+    def process_dataset(self, ds, meta):
         ds = ds.with_format("torch", device= self.process_device)
 
         map1 = lambda x: self.mapper(x, window_size=self.window_size)
@@ -341,7 +285,7 @@ class Pipeline():
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)
         if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta, is_hide_label=self.add_hide_label or self.add_teacher_mask)
+            map2 = lambda x: map_yamld_unfold(x, meta, is_mask_label=self.add_mask_label, is_teacher_mask= self.add_teacher_mask)
             ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
             if self.is_unfold_fixed_window:
                 map3 = lambda x: unfold_mapper(x, window_size=self.window_size)
@@ -356,7 +300,7 @@ class Pipeline():
         return ds
         
 
-    def start(self, do_split=True, gen=None, from_middata=False):
+    def start(self, do_split=True):
         extra_features = list(self.extra_features.keys())
 
         if not self.is_middata_ready():

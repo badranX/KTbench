@@ -1,4 +1,5 @@
 from torch import autograd
+import random
 
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader#, load_from_disk
@@ -16,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 DATE_FORMAT = "M%MS%SH%H_d%d_m%m_y%Y"
+SEED = 82
 
 
 class Collate:
@@ -103,6 +105,7 @@ class Trainer():
         self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
         self.model = self.traincfg.model
         self.n_stop_check = 10  if not hasattr(traincfg,'n_stop_check') else traincfg.n_stop_check
+        self.seed = self.cfg.__dict__.get('seed', SEED)
         if hasattr(cfg, 'eval_method'):
             eval_method = cfg.eval_method
         else:
@@ -121,6 +124,10 @@ class Trainer():
             self.model.parameters(), lr=self.traincfg.lr, betas=(0.9, 0.999), eps=1e-8)
         
     def init_dataloader(self,k):
+        def seed_worker(worker_id):
+            worker_seed = torch.initial_seed() % 2**32
+            np.random.seed(worker_seed)
+            random.seed(worker_seed)
         k = k - 1 #get index
         seqs = [v for k, v in self.cfg.dataset2model_feature_map.items() if 'unfold' in k]
         if hasattr(self.cfg, 'extra_features'):
@@ -134,9 +141,9 @@ class Trainer():
         clt_train = Collate(seqs = seqs_train)
         clt_test = Collate(seqs = seqs_test)
         clt_valid = Collate(seqs = seqs_valid)
-        self.train_dataloader = DataLoader(self.cfg.train_ds[k], batch_size=self.traincfg.batch_size, collate_fn=clt_train.pad_collate)
-        self.valid_dataloader = DataLoader(self.cfg.valid_ds[k], batch_size=self.traincfg.eval_batch_size, collate_fn=clt_valid.pad_collate)
-        self.test_dataloader = DataLoader(self.cfg.test_ds, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
+        self.train_dataloader = DataLoader(self.cfg.train_ds[k], worker_init_fn=seed_worker, shuffle=True, batch_size=self.traincfg.batch_size, collate_fn=clt_train.pad_collate)
+        self.valid_dataloader = DataLoader(self.cfg.valid_ds[k], shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn=clt_valid.pad_collate)
+        self.test_dataloader = DataLoader(self.cfg.test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
 
 
     def question_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
@@ -239,7 +246,6 @@ class Trainer():
 
     def start(self):
         models = []
-
         test_logs = []
         for kfold in range(1, self.kfolds + 1):
             self.init_dataloader(kfold)

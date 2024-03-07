@@ -13,6 +13,7 @@ from .middata_manager import download_dataset, gitdownload
 from ..train import Trainer
 from ..trainlogs import KTBENCH_FOLDER
 
+
 from sklearn.model_selection import KFold
 import shutil
 from pathlib import Path
@@ -26,7 +27,7 @@ packagepath = [p for p in Path(__file__).parents if p.name == "ktbench"][0]
 
 from dataclasses import dataclass
 
-
+SEED = 42
 REDUCE_PREDICT_KEYS = ['ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_unfold_seq_mask', 'ktbench_label_seq'] 
 UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfold_seq_mask', 'ktbench_label_unfold_seq']
 QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_label_seq']
@@ -53,9 +54,25 @@ def rename_columns(ds, featuremap):
     return ds
 
 
+def seed_everything(seed: int):
+    import random, os
+    import numpy as np
+    import torch
+    
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    #torch.cuda.manual_seed(seed)
+    #torch.backends.cudnn.deterministic = True
+    #torch.backends.cudnn.benchmark = True
+
 class Pipeline():
     def __init__(self, cfg):
         self.cfg = cfg
+
+        self.seed = self.cfg.__dict__.get('seed', SEED)
+        seed_everything(self.seed)
         self.cfg.dataset2model_feature_map = self.cfg.model_cls.MODEL_FEATURE_MAP
         self.window_size = cfg.window_size
         self.dataset_name = cfg.dataset_name
@@ -137,6 +154,8 @@ class Pipeline():
     def split_dataset(self, ds):
         l_train_ds  = []
         l_valid_ds  = []
+
+        ds = ds.shuffle(seed=self.seed)
         
         def prepare_all_in_one(test_ds):
             new_column = range(len(test_ds))
@@ -146,7 +165,6 @@ class Pipeline():
             test_ds = test_ds.remove_columns("ktbench_idx") 
             test_ds = test_ds.map(map_allinone_batch, batched=True, remove_columns=test_ds.column_names)
             return test_ds
-
         if self.kfolds == 1:
 
             train_ds, extra_ds = ds.train_test_split(train_size=self.splits[0], shuffle=True, seed=32).values()

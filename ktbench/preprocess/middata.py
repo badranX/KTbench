@@ -54,9 +54,9 @@ def _factorise_df(df, extras, already_factorized, feature2type, ignore=[]):
             continue
         if c in already_factorized:
             cat = already_factorized[c]
-            df[c] = df[c].apply(lambda x: cat.get_loc(x))
+            df.loc[:, c] = df[c].apply(lambda x: cat.get_loc(x))
         else:
-            df[c], cat = pd.factorize(df[c])
+            df.loc[:, c], cat = pd.factorize(df[c])
             extras[CAT2ORIGINAL][c] = {k:v for k, v in enumerate(cat)}
             already_factorized[c] = cat
 
@@ -70,7 +70,7 @@ def _factorise_df(df, extras, already_factorized, feature2type, ignore=[]):
         le = preprocessing.LabelEncoder()
         le.fit(df[c].explode())
         extras[CAT2ORIGINAL][c] = {k:v for k, v in enumerate(le.classes_)}
-        df[c] = df[c].apply(lambda x: le.transform(x).tolist())
+        df.loc[:, c] = df[c].apply(lambda x: le.transform(x).tolist())
         already_factorized[c] = None
 
     return df, extras, already_factorized
@@ -78,11 +78,15 @@ def _factorise_df(df, extras, already_factorized, feature2type, ignore=[]):
 def factorize(df, extras):
     feature2type = df.attrs['feature2type']
     df_exer = extras['exer_df']
+    df_exer = df_exer.drop_duplicates(['exer_id'])
     already_factorized = {}
     df_exer, extras, already_factorized = _factorise_df(df_exer, extras, already_factorized, feature2type)
+    extras['exer_df'] = df_exer
     if 'stu_df' in extras:
         df_stu = extras['stu_df']
+        df_stu = df_stu.drop_duplicates(['stu_id'])
         df_stu, extras, already_factorized = _factorise_df(df_stu, extras, already_factorized, feature2type)
+        extras['stu_df'] = df_stu
     #tokens
     df, extras, already_factorized = _factorise_df(df, extras, already_factorized, feature2type)
     return df, extras
@@ -124,21 +128,32 @@ def write_processed_data(path, df, extras):
 
 def gen_kc_seq(df, extras):
     df_exer = extras['exer_df']
-    mapping = df_exer[['exer_id', 'kc_seq']].copy()
-    mapping['kc_seq'] = mapping['kc_seq'].apply(tuple)
-    mapping.drop_duplicates(inplace=True)
-    mapping = mapping.values.tolist()
-    sorted(mapping, key=lambda x: x[0])
-    kc_seq_unpadding = list(map(lambda x: x[1], mapping))
-    kc_count = len(set(kc_seq_unpadding))
-    kc_seq_unpadding = list(map(list , kc_seq_unpadding))
-    exer_count = len(df_exer['exer_id'].unique())
+    #df_exer = df_exer.drop_duplicates(['exer_id'])
+    try:
+        assert df_exer['exer_id'].max() + 1 == len(df_exer)
+    except AssertionError as e:
+        print('max :', df_exer['exer_id'].max())
+        print('df len: ', len(df_exer))
+        raise e
 
-    #assertions
-    
-    unique = len(set(map(tuple, kc_seq_unpadding)))
-    print('unique kcs : ', unique)
-    
+    exploded_kc_seq = df_exer['kc_seq'].explode().unique()
+    try:
+        assert exploded_kc_seq.max() + 1 == len(exploded_kc_seq)
+    except AssertionError as e:
+        print('max :', exploded_kc_seq.max() )
+        print('df len: ', len(exploded_kc_seq))
+        raise e
+    kc_count = len(exploded_kc_seq)
+    exploded_kc_seq = None
+
+    exer_count = df_exer['exer_id'].nunique()
+    stu_count = df['stu_id'].nunique()
+    grouped_kc_count = df_exer['kc_seq'].apply(tuple).nunique()
+    avg_kc_per_exer = df_exer['kc_seq'].apply(len).mean()
+
+    kc_seq_unpadding = df_exer.sort_values(by='exer_id')['kc_seq'].values.tolist()
+
+    print('unique kcs : ', grouped_kc_count)
     
     meta = extras.get('meta', {})
     extras['meta'] = meta
@@ -146,6 +161,9 @@ def gen_kc_seq(df, extras):
     meta['problem2KCs'] = kc_seq_unpadding
     meta['n_exer'] = exer_count
     meta['n_kc'] = kc_count
+    meta['n_stu'] = stu_count
+    meta['grouped_kc_count'] = grouped_kc_count
+    meta['avg_kc_per_exer'] = avg_kc_per_exer
 
     return df, extras
 
@@ -156,12 +174,7 @@ def gen_kc_seq_with_padding(df, extras):
 
     tmp_df_Q = df_exer.set_index('exer_id')
 
-
-    #TODO counting vs largest index?
-    #kc_count = len(df_exer['kc_seq'].explode().unique())
-    kc_count = int(df_exer.kc_seq.explode().max()+1)
-    exer_count = int(df.exer_id.max() + 1)
-
+    exer_count = meta['n_exer']
     
     kc_seq_unpadding = [
         (tmp_df_Q.loc[exer_id].kc_seq if exer_id in tmp_df_Q.index else []) for exer_id in range(exer_count)
@@ -175,8 +188,6 @@ def gen_kc_seq_with_padding(df, extras):
     meta['kc_seq_padding'] = kc_seq_padding
     meta['kc_seq_lens'] = kc_seq_lens
     meta['n_exer'] = exer_count
-    meta['n_kc'] = kc_count
-    #calculate the max_size window if unfolded cpts
     return df, extras
 
 def groupby_student(df, extras):

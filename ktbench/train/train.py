@@ -95,15 +95,15 @@ class Trainer():
         }
         model = cfg.model_cls(cfg).to(cfg.device)
         traincfg.model = model
+        self.traincfg = traincfg
+        self.model = model
         self.is_unfold = cfg.is_unfold
         self.logs = LogsHandler(cfg)
         cfg.logs = self.logs
         self.cfg = cfg
         self.device =cfg.device
-        self.traincfg = traincfg
         self.is_padded = False if not hasattr(traincfg, 'is_padded') else traincfg.is_padded
         self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
-        self.model = self.traincfg.model
         self.n_stop_check = 10  if not hasattr(traincfg,'n_stop_check') else traincfg.n_stop_check
         self.seed = self.cfg.__dict__.get('seed', SEED)
         if hasattr(cfg, 'eval_method'):
@@ -245,6 +245,7 @@ class Trainer():
 
 
     def start(self):
+        self.logs.train_starts(self.model.__class__.__name__)
         models = []
         test_logs = []
         for kfold in range(1, self.kfolds + 1):

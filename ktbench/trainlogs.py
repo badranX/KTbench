@@ -15,12 +15,12 @@ class LogsHandler:
                 self.checkpoint_parent_folder.mkdir()
         self.datasetname = config.dataset_name
         self.windowsize = config.window_size
-        self.checkpoint_folder = self.checkpoint_parent_folder / f"{self.datasetname}_{self.windowsize}"
-        self.timestamp = datetime.now().strftime("%S-%M-%H--%d-%m-%Y")
-        self.current_checkpoint_folder = self.checkpoint_folder / self.timestamp
+        self.dataset_window_folder = self.checkpoint_parent_folder / f"{self.datasetname}_{self.windowsize}"
+        
+    def train_starts(self, model_name):
+        self.timestamp = datetime.now().strftime("%Ss%Mm%Hh-%dD%mM%YY")
+        self.current_checkpoint_folder = self.dataset_window_folder/model_name/self.timestamp
 
-        # Create necessary directories
-        #self.checkpoint_folder.mkdir(parents=True, exist_ok=True)
         self.current_checkpoint_folder.mkdir(parents=True, exist_ok=True)
 
     def save_checkpoint(self, model, optimizer, epoch, loss, accuracy):
@@ -36,12 +36,12 @@ class LogsHandler:
         }, checkpoint_filename)
 
         # Remove the previous checkpoint folder
-        if len(list(self.checkpoint_folder.glob("*"))) > 1:
-            previous_checkpoint_folder = sorted(self.checkpoint_folder.glob("*"))[0]
+        if len(list(self.dataset_window_folder.glob("*"))) > 1:
+            previous_checkpoint_folder = sorted(self.dataset_window_folder.glob("*"))[0]
             previous_checkpoint_folder.rmdir()
 
     def load_checkpoint(self, ModelClass, optimizer):
-        latest_checkpoint_folder = sorted(self.checkpoint_folder.glob("*"))[-1]
+        latest_checkpoint_folder = sorted(self.dataset_window_folder.glob("*"))[-1]
         latest_checkpoint_path = latest_checkpoint_folder / "checkpoint.pth"
 
         # Load model and optimizer state
@@ -53,7 +53,7 @@ class LogsHandler:
         return model, optimizer, checkpoint['epoch']
 
     def load_best_model(self, ModelClass, kfold):
-        best_model_filename = self.checkpoint_folder / f"best_model_fold_{kfold}.pth"
+        best_model_filename = self.current_checkpoint_folder/f"best_model_fold_{kfold}.pth"
 
         # Load best model state
         checkpoint = torch.load(best_model_filename)
@@ -63,7 +63,7 @@ class LogsHandler:
         return model
 
     def save_best_model(self, model, best_epoch, kfold):
-        best_model_filename = self.checkpoint_folder / f"best_model_fold_{kfold}.pth"
+        best_model_filename = self.current_checkpoint_folder/f"best_model_fold_{kfold}.pth"
 
         # Save best model state
         torch.save({

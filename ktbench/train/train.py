@@ -105,7 +105,7 @@ class Trainer():
         self.is_padded = getattr(traincfg, 'is_padded', False)
         self.kfolds = getattr(cfg, 'kfold', 1)
         self.n_stop_check = getattr(traincfg,'n_stop_check', 10)
-        self.seed = self.cfg.__dict__.get('seed', SEED)
+        self.seed = getattr(self.cfg, 'seed', SEED)
         if hasattr(cfg, 'eval_method'):
             eval_method = cfg.eval_method
         else:

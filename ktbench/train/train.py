@@ -214,20 +214,26 @@ class Trainer():
         kc_seq_mask = kwargs[key_kc_seq_mask]
         unfold_seq_mask = kwargs[key_unfold_seq_mask]
 
-        #reset to normal length, assuming we remove first & last question
-        if True or idxslice != slice(None,None):
-            #TODO optimize!
-            new_ypd = -1*torch.ones_like(unfold_seq_mask, dtype=y_pd.dtype)
-            new_ypd[...,idxslice] = y_pd
-            y_pd = new_ypd
+        #prepare constant window-length
+        tmpcat = []
+        if idxslice.start:
+            prepend= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.start)
+            tmpcat.append(prepend)
+        tmpcat.append(y_pd)
+        if idxslice.stop:
+            append= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.stop)
+            tmpcat.append(append)
+        if len(tmpcat) > 1:
+            y_pd = torch.cat(tmpcat, dim=-1)
+        #end prepare constant window length
 
-        tmp = torch.zeros(*kc_seq_mask.shape, dtype=y_pd.dtype).to(self.device)
+        lens = kc_seq_mask[:,1:-1].sum(-1)[mask[:,1:-1]==1]
+        #tmp = torch.zeros(*kc_seq_mask.shape, dtype=y_pd.dtype).to(self.device)
+        tmp = kc_seq_mask.float()
         #todo make sure masked exersies, is treated as exer 0 and mapped in kc_seq_mask
         tmp[kc_seq_mask==1] = y_pd[unfold_seq_mask == 1]
         #TODO adjust this
-        tmp = tmp[:,1:-1]  #remove 1st question
-
-        lens = kc_seq_mask[:,1:-1].sum(-1)[mask[:,1:-1]==1]
+        tmp = tmp[:,1:-1]  #remove 1st and last question from window
 
         #mean reduce
         y_pd = tmp.sum(-1)[mask[:,1:-1]==1]/lens
@@ -367,7 +373,7 @@ class Trainer():
         self.model.eval()
         preds = {}
         trgts = {}
-        for batch_id, batch in enumerate(tqdm(data_loader, desc='all_in_one test')):
+        for id, batch in enumerate(tqdm(data_loader, desc='all_in_one test')):
             y_pd, idxslice = self.model.ktbench_predict(**batch)
             batch_eval = self._all_in_one_eval(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
             batch_ids = batch_eval['ids']

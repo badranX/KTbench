@@ -102,9 +102,9 @@ class Trainer():
         cfg.logs = self.logs
         self.cfg = cfg
         self.device =cfg.device
-        self.is_padded = False if not hasattr(traincfg, 'is_padded') else traincfg.is_padded
-        self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
-        self.n_stop_check = 10  if not hasattr(traincfg,'n_stop_check') else traincfg.n_stop_check
+        self.is_padded = getattr(traincfg, 'is_padded', False)
+        self.kfolds = getattr(cfg, 'kfold', 1)
+        self.n_stop_check = getattr(traincfg,'n_stop_check', 10)
         self.seed = self.cfg.__dict__.get('seed', SEED)
         if hasattr(cfg, 'eval_method'):
             eval_method = cfg.eval_method
@@ -379,35 +379,6 @@ class Trainer():
         preds = map(lambda x: sum(x)/len(x), preds.values())
         trgts = list(trgts.values())
         preds = torch.hstack(list(preds)).cpu().detach().numpy()
-        trgts = torch.hstack(trgts).cpu().detach().numpy()
-
-        return compute_metrics(trgts, preds)
-
-    def step_unfold_test(self, fold_num):
-        extras = {} if not hasattr(self.cfg, 'extra_sequence_axis') else self.cfg.extra_sequence_axis
-        #sequence_axis = dict(SEQUENCE_AXIS)
-        sequence_axis = extras
-        sequence_axis.update(extras)
-        d2m = self.cfg.dataset2model_feature_map
-        sequence_axis = {model_feature: sequence_axis[ktbench_feature] for ktbench_feature, model_feature in d2m.items()}
-
-        unfold_seq_mask = d2m.get(*2*('ktbench_unfold_seq_mask',)) 
-        key_ktbench_label_unfold_seq = d2m.get(*2*('ktbench_label_unfold_seq',))
-
-        for batch_id, batch in enumerate(tqdm(self.test_dataloader, desc="[TEST]")):
-            mask = batch[unfold_seq_mask]
-            for i in range(2, mask.shape[-1]+1):
-                cutbatch = dict(batch)
-                tmp = {k: v[:i] for k,v in sequence_axis if k in batch}
-                cutbatch.update(tmp)
-                y_pd, idxslice = self.model.ktbench_predict(**cutbatch)
-                #TODO
-                batch_eval = self.eval_method(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
-
-            preds.append(batch_eval['predict'])
-            trgts.append(batch_eval['target'])
-
-        preds = torch.hstack(preds).cpu().detach().numpy()
         trgts = torch.hstack(trgts).cpu().detach().numpy()
 
         return compute_metrics(trgts, preds)

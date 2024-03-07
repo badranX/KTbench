@@ -85,17 +85,9 @@ class Pipeline():
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
             self.cfg.device = self.device
 
+        self.extra_features = getattr(cfg, 'extra_features', dict())
 
-        if hasattr(cfg, 'extra_features'):
-            self.extra_features = cfg.extra_features
-        else:
-            self.extra_features = dict()
-
-
-        if hasattr(cfg, 'is_unfold_fixed_window'):
-            self.is_unfold_fixed_window = cfg.is_unfold_fixed_window
-        else:
-            self.is_unfold_fixed_window = False
+        self.is_unfold_fixed_window = getattr(cfg, 'is_unfold_fixed_window', False)
 
         if hasattr(cfg, 'dataset_path'):
             self.dataset_dir = Path(cfg.dataset_path).parent
@@ -107,13 +99,13 @@ class Pipeline():
             self.yaml_dataset_path = self.dataset_dir / (self.dataset_name + '.yaml')
 
         
-        self.splits = [0.6, 0.5] if not hasattr(cfg, 'splits') else cfg.splits
-        self.kfolds = 1 if not hasattr(cfg, 'kfold') else cfg.kfold
-        self.multi2one_kcs = False if not hasattr(cfg, 'multi2one_kcs') else cfg.multi2one_kcs
+        self.splits = getattr(cfg, 'splits', [0.6, 0.5])
+        self.kfolds = getattr(cfg, 'kfold', 1)
+        self.multi2one_kcs = getattr(cfg, 'multi2one_kcs', False)
 
-        self.add_hide_label = False if not hasattr(cfg, 'add_hide_label') else cfg.add_hide_label
-        self.add_teacher_mask = False if not hasattr(cfg, 'add_teacher_mask') else cfg.add_teacher_mask
-        self.cfg.all_in_one = False if not hasattr(cfg, 'all_in_one') else cfg.all_in_one
+        self.add_hide_label = getattr(cfg, 'add_hide_label', False)
+        self.add_teacher_mask = getattr(cfg, 'add_teacher_mask', False)
+        self.cfg.all_in_one = getattr(cfg, 'all_in_one', False)
         self.init_tgt_features()
 
         

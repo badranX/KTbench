@@ -13,6 +13,8 @@ def run_trainer(cfg, traincfg, hyper_params=None):
     return trainer
 
 def bench_model(cfg, traincfg, datasets=None, hyper_params=None):
+    if hasattr(cfg, 'dataset_name') and datasets:
+        print("[WARNING] config contain dataset_name but datasets were provided. Will default to the provided datasets")
     if not datasets:
         datasets = [cfg.dataset_name]
         

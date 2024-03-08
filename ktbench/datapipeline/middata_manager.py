@@ -24,7 +24,7 @@ dataset2gitbranch = {
     'AKT_assist2017': 'data/AKT_assist2017',
     'assist2009': 'data/assist2009',
     'corr_assist2009': 'data/corr_assist2009',
-    'dualingo2018_es_en': 'data/dualingo2018_es_en',
+    'duolingo2018_es_en': 'data/duolingo2018_es_en',
     'algebra2005': 'data/algebra2005'
 }
 

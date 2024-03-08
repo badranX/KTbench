@@ -87,13 +87,16 @@ class Trainer():
     TEST_STEP, \
     *_ = range(10)
 
-    def __init__(self, traincfg, cfg):
+    def __init__(self, traincfg, cfg, hyper_param=None):
         self.inference_methods = {
             self.EVAL_QUESTION_LEVEL: self.question_eval,
             self.EVAL_UNFOLD_REDUCE: self.reduce_eval,
             self.EVAL_UNFOLD_KC_LEVEL: self.kc_eval,
         }
-        model = cfg.model_cls(cfg).to(cfg.device)
+        if hyper_param:
+            model = cfg.model_cls(cfg, hyper_param).to(cfg.device)
+        else:
+            model = cfg.model_cls(cfg).to(cfg.device)
         traincfg.model = model
         self.traincfg = traincfg
         self.model = model

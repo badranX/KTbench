@@ -93,13 +93,10 @@ class Trainer():
             self.EVAL_UNFOLD_REDUCE: self.reduce_eval,
             self.EVAL_UNFOLD_KC_LEVEL: self.kc_eval,
         }
-        if hyper_param:
-            model = cfg.model_cls(cfg, hyper_param).to(cfg.device)
-        else:
-            model = cfg.model_cls(cfg).to(cfg.device)
-        traincfg.model = model
+        self.hyper_param = hyper_param
+        self.cfg = cfg
         self.traincfg = traincfg
-        self.model = model
+        
         self.is_unfold = cfg.is_unfold
         self.logs = LogsHandler(cfg)
         cfg.logs = self.logs
@@ -123,10 +120,18 @@ class Trainer():
 
         self.n_epoch = self.traincfg.n_epoch
 
+        
+    def init_model(self):
+        if self.hyper_param:
+            self.model = self.cfg.model_cls(self.cfg, self.hyper_param).to(self.cfg.device)
+        else:
+            self.model = self.cfg.model_cls(self.cfg).to(self.cfg.device)
+        self.traincfg.model  = self.model
         self.optimizer = torch.optim.Adam(
             self.model.parameters(), lr=self.traincfg.lr, betas=(0.9, 0.999), eps=1e-8)
-        
-    def init_dataloader(self,k):
+        return self.model
+
+    def init_dataloader(self, k):
         def seed_worker(worker_id):
             worker_seed = torch.initial_seed() % 2**32
             np.random.seed(worker_seed)
@@ -254,10 +259,11 @@ class Trainer():
 
 
     def start(self):
-        self.logs.train_starts(self.model.__class__.__name__)
+        self.logs.train_starts(self.cfg.model_cls.__name__)
         models = []
         test_logs = []
         for kfold in range(1, self.kfolds + 1):
+            self.init_model()
             self.init_dataloader(kfold)
             print(f"[INFO] training start at kfold {kfold} out of {self.kfolds} folds...")
             print(f"-------")
@@ -299,10 +305,8 @@ class Trainer():
                           'num_epochs': len(eval_logs)})
             test_logs.append(tests)
             print(tests)
-            yamld.write_dataframe(self.logs.current_checkpoint_folder/"test.yaml", pd.DataFrame(test_logs))
-
-        yamld.write_dataframe(self.logs.current_checkpoint_folder/"test.yaml", pd.DataFrame(test_logs))
-        yamld.write_dataframe(self.logs.current_checkpoint_folder/"valid.yaml", pd.DataFrame(eval_logs))
+            yamld.write_dataframe(self.logs.current_checkpoint_folder/f"valid_fold_{kfold}.yaml", pd.DataFrame(eval_logs))
+            yamld.write_dataframe(self.logs.current_checkpoint_folder/f"test.yaml", pd.DataFrame(test_logs))
 
 
     def train(self, epoch_num):
@@ -379,7 +383,7 @@ class Trainer():
         self.model.eval()
         preds = {}
         trgts = {}
-        for id, batch in enumerate(tqdm(data_loader, desc='all_in_one test')):
+        for id, batch in enumerate(tqdm(data_loader, desc='all_in_one test fold {}'.format(kfold))):
             y_pd, idxslice = self.model.ktbench_predict(**batch)
             batch_eval = self._all_in_one_eval(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
             batch_ids = batch_eval['ids']

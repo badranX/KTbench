@@ -176,14 +176,14 @@ class Pipeline():
 
         else:
 
-            rest_ds, test_ds = ds.train_test_split(train_size=(1-self.splits[0])*self.splits[1], shuffle=True, seed=32).values()
+            rest_ds, test_ds = ds.train_test_split(train_size=(1-self.splits[0])*self.splits[1], shuffle=True, seed=self.seed).values()
 
             if self.cfg.all_in_one:
                 test_ds = prepare_all_in_one(test_ds)
             else:
                 test_ds = test_ds.select_columns(self.eval_tgt_features)
             test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
-            folds = KFold(n_splits=self.kfolds, shuffle=True, random_state=2)
+            folds = KFold(n_splits=self.kfolds, shuffle=True, random_state=self.seed)
             splits = folds.split(np.zeros(rest_ds.num_rows))
             for train_idxs, valid_idxs in splits:
                 train_ds = rest_ds.select(train_idxs)

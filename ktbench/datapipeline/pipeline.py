@@ -152,13 +152,13 @@ class Pipeline():
         def prepare_all_in_one(test_ds):
             new_column = range(len(test_ds))
             test_ds= test_ds.add_column("ktbench_idx", new_column)
-            map = lambda x: map_allinone_before_batch(x, len(test_ds))
+            map = lambda x: map_allinone_before_batch(x, len(test_ds), is_hide_label=self.add_mask_label or self.add_teacher_mask)
             test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
             test_ds = test_ds.remove_columns("ktbench_idx") 
             test_ds = test_ds.map(map_allinone_batch, batched=True, remove_columns=test_ds.column_names)
             return test_ds
-        if self.kfolds == 1:
 
+        if self.kfolds == 1:
             train_ds, extra_ds = ds.train_test_split(train_size=self.splits[0], shuffle=True, seed=32).values()
             test_ds, valid_ds = extra_ds.train_test_split(train_size=self.splits[1], shuffle=True, seed=32).values()
             train_ds = train_ds.select_columns(self.tgt_features)

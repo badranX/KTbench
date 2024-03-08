@@ -13,16 +13,14 @@ else:
 
 @dataclass
 class Params:
-    emb_size = 100
-    hidden_size = 100
+    emb_size = 128
+    hidden_size = 128
     num_layers = 1
     dropout_rate = 0.2
     rnn_or_lstm = 'lstm'
 
 
-
 class DKT(BaseModel):
-
     MODEL_FEATURE_MAP = {
          'ktbench_kc_unfold_seq' : 'exer_seq' ,
          'ktbench_unfold_seq_mask' : 'mask_seq' ,
@@ -61,85 +59,15 @@ class DKT(BaseModel):
         output = self.dropout_layer(output)
         y_pd = self.fc_layer(output).sigmoid()
         return y_pd
-    
-    @torch.no_grad()
-    def predict(self, **kwargs):
-        y_pd = self(**kwargs)
-
-        y_pd = y_pd[:, :-1].gather(
-            index=kwargs['exer_seq'][:, 1:].unsqueeze(dim=-1), dim=2
-        ).squeeze(dim=-1)
-        y_pd = y_pd[kwargs['mask_seq'][:, 1:] == 1]
-        y_gt = None
-        if kwargs.get('label_seq', None) is not None:
-            y_gt = kwargs['label_seq'][:, 1:]
-            y_gt = y_gt[kwargs['mask_seq'][:, 1:] == 1]
-        return {
-            'predict': y_pd,
-            'target': y_gt
-        }
-
-    @torch.no_grad()
-    def ktbench_trace(self, **kwargs):
-        y_pd = self(**kwargs)
-        return y_pd
 
     @torch.no_grad()
     def ktbench_predict(self, **kwargs):
         y_pd = self(**kwargs)
-
-        #first and last question will be removed
-        #tmp_pd = y_pd[...,0]
         y_pd = y_pd[:, :-1].gather(
             index=kwargs['exer_seq'][:, 1:].unsqueeze(dim=-1), dim=2
         ).squeeze(dim=-1)
-        #mask
-        #tmp_pd[:,0] = -1
-        #y_pd = tmp_pd
+
         return y_pd, slice(1, None)
-
-    @torch.no_grad()
-    def reduce_predict_batch(self, **kwargs):
-        key_exer_seq_mask = self.cfg.badkeys2features.get(*2*('ktbench_exer_seq_mask',)) 
-        key_cpt_seq_mask = self.cfg.badkeys2features.get(*2*('ktbench_cpt_seq_mask',))
-        key_unfold_seq_mask = self.cfg.badkeys2features.get(*2*('ktbench_unfold_seq_mask',))
-        key_ktbench_label_seq = self.cfg.badkeys2features.get(*2*('ktbench_label_seq',))
-
-        y_pd = self(**kwargs)
-        #first and last question will be removed
-        tmp_pd = y_pd[...,0]
-        tmp_pd[:, 1:] = y_pd[:, :-1].gather(
-            index=kwargs['exer_seq'][:, 1:].unsqueeze(dim=-1), dim=2
-        ).squeeze(dim=-1)
-        y_pd = tmp_pd
-        #y_pd = y_pd[kwargs['mask_seq'][:, 1:] == 1]
-
-        mask = kwargs[key_exer_seq_mask]
-        cpt_seq_mask = kwargs[key_cpt_seq_mask]
-        unfold_seq_mask = kwargs[key_unfold_seq_mask]
-
-        tmp = torch.zeros(*cpt_seq_mask.shape, dtype=y_pd.dtype).to(self.device)
-        #todo make sure masked exersies, is treated as exer 0 and mapped in cpt_seq_mask
-        tmp[cpt_seq_mask==1] = y_pd[unfold_seq_mask == 1]
-        tmp = tmp[:,1:-1]  #remove 1st question
-
-        lens = cpt_seq_mask[:,1:-1].sum(-1)[mask[:,1:-1]==1]
-
-        #mean reduce
-        y_pd = tmp.sum(-1)[mask[:,1:-1]==1]/lens
-
-        #switch prediction to question-based
-        y_gt = kwargs[key_ktbench_label_seq][:, 1:-1]  #remove 1st question
-
-        y_gt = y_gt[mask[:,1:-1]==1]
-        
-
-        return {
-            'predict': y_pd,
-            'target': y_gt,
-            'len': len(y_pd)
-        }
-
 
     def losses(self, **kwargs):
         y_pd = self(**kwargs)

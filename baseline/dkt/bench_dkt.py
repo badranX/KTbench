@@ -15,23 +15,27 @@ if __name__ == '__main__':
         #dataset_name = "corr_assist2009"
         multi2one_kcs = True
         window_size: int = 100
-        add_mask_label = True
-        add_teacher_mask = True
+        add_mask_label = False
+        add_teacher_mask = False
         is_unfold = True
         is_unfold_fixed_window = False
-        all_in_one = False
+        all_in_one = True
         #eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL
         eval_method = Trainer.EVAL_UNFOLD_REDUCE
 
-        splits = [0.8, 0.3] 
+        splits = [0.6, 0.5] 
 
 
     @dataclass
     class Traincfg:
-        batch_size = 32
-        eval_batch_size = 32
-        n_epoch = 1
+        batch_size = 256
+        eval_batch_size = 128
+        n_epoch = 10
         lr = 0.001
     
+    #bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'dualingo2008_es_en'])
+    bench_model(Cfg(), Traincfg(), datasets = ['corr_assist2009'])
     
-    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009'])
+    
+
+    

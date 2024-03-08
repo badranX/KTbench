@@ -13,13 +13,15 @@ class LogsHandler:
             self.checkpoint_parent_folder  = current_directory / KTBENCH_FOLDER
             if not self.checkpoint_parent_folder.exists():
                 self.checkpoint_parent_folder.mkdir()
+        self.cfg = config
         self.datasetname = config.dataset_name
         self.windowsize = config.window_size
         self.dataset_window_folder = self.checkpoint_parent_folder / f"{self.datasetname}_{self.windowsize}"
         
     def train_starts(self, model_name):
         self.timestamp = datetime.now().strftime("%Ss%Mm%Hh-%dD%mM%YY")
-        self.current_checkpoint_folder = self.dataset_window_folder/model_name/self.timestamp
+        append = getattr(self.cfg, 'append2logdir', '')
+        self.current_checkpoint_folder = self.dataset_window_folder/(model_name + append)/self.timestamp
 
         self.current_checkpoint_folder.mkdir(parents=True, exist_ok=True)
 

@@ -356,13 +356,16 @@ class Trainer():
         tgt_index = kwargs['ktbench_allinone_tgt_index']
         label = kwargs['ktbench_allinone_label']
         ids = kwargs['ktbench_allinone_id']
-        start =  idxslice.start if idxslice.start  else 0
 
-        tgt_index -= start
+        start =  idxslice.start if idxslice.start  else 0
+        tgt_index += start
+
         #remove indices that was not calculated by the model
         max_len = y_pd.shape[-1] 
-        y_pd = y_pd[tgt_index < max_len, :] 
-        tgt_index = tgt_index[tgt_index < max_len] 
+        tmpmask = tgt_index < max_len
+        y_pd = y_pd[tmpmask, :] 
+        tgt_index = tgt_index[tmpmask] 
+        label = label[tmpmask]
         y_pd = y_pd.gather(dim=-1, index=tgt_index.unsqueeze(-1))
         ret  = {
             'predict': y_pd,

@@ -99,7 +99,7 @@ class Pipeline():
             self.yaml_dataset_path = self.dataset_dir / (self.dataset_name + '.yaml')
 
         
-        self.splits = getattr(cfg, 'splits', [0.6, 0.5])
+        self.splits = getattr(cfg, 'splits', [0.2, 0.8])
         self.kfolds = getattr(cfg, 'kfold', 1)
         self.multi2one_kcs = getattr(cfg, 'multi2one_kcs', False)
 
@@ -148,19 +148,23 @@ class Pipeline():
         l_valid_ds  = []
 
         ds = ds.shuffle(seed=self.seed)
+        print('[INFO] total dataset lenght: ', len(ds))
         
         def prepare_all_in_one(test_ds):
             new_column = range(len(test_ds))
             test_ds= test_ds.add_column("ktbench_idx", new_column)
+            print('[INFO] start all_in_one test dataset processing...')
+            print('[INFO] test len: ', len(test_ds))
             map = lambda x: map_allinone_before_batch(x, len(test_ds), is_hide_label=self.add_mask_label or self.add_teacher_mask)
             test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
             test_ds = test_ds.remove_columns("ktbench_idx") 
             test_ds = test_ds.map(map_allinone_batch, batched=True, remove_columns=test_ds.column_names)
             return test_ds
-
+        test_per = self.splits[0]
+        train_valid_split_per = self.splits[1]
         if self.kfolds == 1:
-            train_ds, extra_ds = ds.train_test_split(train_size=self.splits[0], shuffle=True, seed=32).values()
-            test_ds, valid_ds = extra_ds.train_test_split(train_size=self.splits[1], shuffle=True, seed=32).values()
+            test_ds, extra_ds= ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
+            train_ds, valid_ds = extra_ds.train_test_split(train_size=train_valid_split_per, shuffle=True, seed=self.seed).values()
             train_ds = train_ds.select_columns(self.tgt_features)
             valid_ds = valid_ds.select_columns(self.eval_tgt_features)
             if self.cfg.all_in_one:
@@ -176,7 +180,7 @@ class Pipeline():
 
         else:
 
-            rest_ds, test_ds = ds.train_test_split(train_size=(1-self.splits[0])*self.splits[1], shuffle=True, seed=self.seed).values()
+            test_ds, rest_ds = ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
 
             if self.cfg.all_in_one:
                 test_ds = prepare_all_in_one(test_ds)

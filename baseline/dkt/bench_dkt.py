@@ -5,7 +5,6 @@ from ktbench.model.dkt.dkt import DKT
 
 
 if __name__ == '__main__':
-    IS_REDUCE_EVAL = True
     @dataclass
     class Cfg:
         model_cls = DKT
@@ -15,7 +14,6 @@ if __name__ == '__main__':
 
         eval_method = Trainer.EVAL_UNFOLD_REDUCE
         kfold = 5
-        splits = [0.6, 0.5] 
 
     @dataclass
     class Traincfg:
@@ -24,4 +22,4 @@ if __name__ == '__main__':
         n_epoch = 100
         lr = 0.001
     
-    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'dualingo2008_es_en'])
+    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'duolingo2008_es_en'])

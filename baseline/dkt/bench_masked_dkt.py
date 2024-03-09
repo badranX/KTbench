@@ -1,51 +1,36 @@
-from torch.utils.data import DataLoader
-from ktbench.trainlogs import LogsHandler
-import pandas as pd
-
-from ktbench.model.dkt.masked_dkt import MaskedDKT
-from ktbench.train import Trainer
-from ktbench.datapipeline.pipeline import Pipeline
+from ktbench.run import bench_model
 from dataclasses import dataclass
+from ktbench.train import Trainer
+from ktbench.model.dkt.masked_dkt import MaskedDKT
+from ktbench.model.dkt.masked_dkt import Params
 
-
-def init_datapipeline(cfg):
-    pipline = Pipeline(cfg)
-    pipline.start(gen=None, from_middata=False)
-    return pipline
-    
-def fit(cfg, traincfg):
-    trainer = Trainer(traincfg, cfg)
-    trainer.start()
 
 if __name__ == '__main__':
-    IS_REDUCE_EVAL = True
     @dataclass
     class Cfg:
-        #dataset_name = "AKT_assist2017"
-        #dataset_name = "assist2009"
-        #dataset_name = "dualingo2018"
-        dataset_name = "corr_assist2009"
-        window_size: int = 100
-        add_hide_label = True
-        is_unfold = True
-        is_unfold_fixed_window = False
-        #eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL
-        eval_method = Trainer.EVAL_UNFOLD_REDUCE
         model_cls = MaskedDKT
+        window_size: int = 150
+        add_mask_label = True
+        is_unfold = True
 
+        eval_method = Trainer.EVAL_UNFOLD_REDUCE
+        kfold = 5
 
     @dataclass
     class Traincfg:
-        batch_size = 32
-        eval_batch_size = 32
-        n_epoch = 40
+        batch_size = 256
+        eval_batch_size = 128
+        n_epoch = 100
         lr = 0.001
-    
+
+    prm = Params() 
     cfg = Cfg()
+    prm.separate_qa = False
+    cfg.append2logdir = '_seperate_qa_True'
+    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])
 
-    pipline = init_datapipeline(cfg) 
-    eval_methods = [Trainer.EVAL_UNFOLD_KC_LEVEL, 
-                Trainer.EVAL_UNFOLD_KC_LEVEL]
-    cfg.eval_method = eval_methods[0]
-
-    fit(cfg, Traincfg())
+    prm = Params() 
+    cfg = Cfg()
+    prm.separate_qa = False
+    cfg.append2logdir = '_seperate_qa_False'
+    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])

@@ -21,7 +21,9 @@ def unfold_mapper(x, window_size):
 
                         new[k] =  seq
         if idx:
-                new['stu_id'] = x['stu_id'][idx]
+                for k, v in x.items():
+                        if 'unfold' not in k:
+                                new[k] = x[k][idx]
 
 
         x.update(new)

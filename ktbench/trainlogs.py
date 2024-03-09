@@ -1,7 +1,13 @@
 from datetime import datetime
+import yamld
 from pathlib import Path
 import torch
 import json
+from pathlib import Path
+import re
+import time
+
+
 KTBENCH_FOLDER = ".ktbench"
 
 class LogsHandler:
@@ -74,3 +80,62 @@ class LogsHandler:
             'config': model.cfg,
             'prm': model.prm
         }, best_model_filename)
+
+from pathlib import Path
+import re
+
+
+def read_tests(directory_path, full=False):
+    def extract_timestamp(folder_name):
+        return time.mktime(time.strptime(folder_name, '%Ss%Mm%Hh-%dD%mM%YY'))
+
+    timestamp_pattern = re.compile(r'\d{2}s\d{2}m\d{2}h-\d{2}D\d{2}M\d{4}Y')
+
+    directory_path = Path(directory_path)
+
+    timestamp_folders = {}
+    meta_data = {}
+
+    for dsdir in directory_path.iterdir():
+        if dsdir.is_dir():
+            #dataset dir
+            for modeldir in dsdir.iterdir():
+                tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir()],
+                                                          key=lambda x: extract_timestamp(x.name),
+                                                          reverse=True)
+
+                timestamp_folders[(dsdir.name, modeldir.name)] = tmp
+                meta_data[(dsdir.name, modeldir.name)] = [(x.name, yamld.read_dataframe(x/'test.yaml')) for x in tmp if (x/'test.yaml').exists()]
+                                                        
+                                                       
+    if full:
+        for modeldir, timel in timestamp_folders.items():
+            print('### ', modeldir)
+            for logdir in timel:
+                print('##### ', logdir.name)
+                testfile = logdir/'test.yaml'
+                if testfile.exists():
+                    print(open(testfile, 'r').read())
+    else:
+        for k, timel in meta_data.items():
+            print('### ', k)
+            for traintime, df in timel:
+                print('##### ', traintime)
+                print(df.mean())
+
+
+    return timestamp_folders
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description="Simple Args Parser")
+
+    parser.add_argument("directory", nargs="?", default=Path.cwd(), type=Path,
+                        help="The directory to process (default: current working directory)")
+
+    parser.add_argument("--full", action="store_true", help="Include full processing")
+
+    args =  parser.parse_args()
+
+    read_tests(args.directory, args.full)

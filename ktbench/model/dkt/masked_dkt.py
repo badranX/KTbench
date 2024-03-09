@@ -13,8 +13,8 @@ else:
 
 @dataclass
 class Params:
-    emb_size = 100
-    hidden_size = 100
+    emb_size = 128
+    hidden_size = 128
     num_layers = 1
     dropout_rate = 0.2
     rnn_or_lstm = 'lstm'

@@ -10,6 +10,7 @@ if __name__ == '__main__':
         model_cls = AKT
         window_size: int = 150
         is_unfold = True
+        all_in_one= True
 
         eval_method = Trainer.EVAL_UNFOLD_REDUCE
         #eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL

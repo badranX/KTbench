@@ -165,13 +165,9 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
         
         ret = entry.__dict__
         new.ktbench_kc_unfold_seq = []
-        ret.pop('ktbench_kc_unfold_seq', None)
         new.ktbench_unfold_seq_mask = []
-        ret.pop('ktbench_unfold_seq_mask', None)
         new.ktbench_label_unfold_seq = []
-        ret.pop('ktbench_label_unfold_seq', None)
         new.ktbench_exer_unfold_seq = []
-        ret.pop('ktbench_exer_unfold_seq', None)
 
         new.ktbench_allinone_label = []
         new.ktbench_allinone_id = []
@@ -179,10 +175,9 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
 
         if is_hide_label:
                 new.ktbench_masked_label_unfold_seq = []
-                ret.pop('ktbench_masked_label_unfold_seq', None)
                 new.ktbench_teacher_unfold_seq_mask = []
-                ret.pop('ktbench_teacher_unfold_seq_mask', None)
                 clone_kc_seq_mask = entry.ktbench_kc_seq_mask.clone()
+
         for idx  in range(2, entry.ktbench_exer_seq_mask.shape[-1] + 1):
                 if entry.ktbench_exer_seq_mask[idx - 1] == 0:
                         break
@@ -215,7 +210,6 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                         new.ktbench_masked_label_unfold_seq += list(masked_label_unfold_seq[None,indices].squeeze(0))
                         new.ktbench_teacher_unfold_seq_mask += list(teacher_unfold_seq_mask[None,indices].squeeze(0))
                         
-
                 new.ktbench_allinone_label += [end_label]*tmplen
                 new.ktbench_allinone_id += [allone_id]*tmplen
                 #new.ktbench_allinone_mask += [tgt]*tmplen
@@ -225,10 +219,11 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                 new.ktbench_unfold_seq_mask += list(out_mask[None, indices].squeeze(0))
                 new.ktbench_label_unfold_seq += list(label_unfold_seq[None,indices].squeeze(0))
                 new.ktbench_exer_unfold_seq += list(exer_unfold_seq[None,indices].squeeze(0))
-                #torch.expand(tmplen, entry.kc_unfold_seq.shape[-1])
-                               
-        tmp = {f"{ALLINONETAG}{key}": value for key, value in new.__dict__.items()}
+                
         ret = entry.__dict__
+        for k in new.__dict__.keys():
+                ret.pop(k, None)
+        tmp = {f"{ALLINONETAG}{key}": value for key, value in new.__dict__.items()}
         ret.update(tmp)
         return ret
 

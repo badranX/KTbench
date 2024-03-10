@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from ktbench.train import Trainer
 from ktbench.model.kqn.kqn import KQN
 
-
-if __name__ == '__main__':
+def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2008_es_en']):
     @dataclass
     class Cfg:
         model_cls = KQN
@@ -22,4 +21,7 @@ if __name__ == '__main__':
         n_epoch = 100
         lr = 0.001
     
-    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'duolingo2008_es_en'])
+    bench_model(Cfg(), Traincfg(), datasets = datasets)
+
+if __name__ == '__main__':
+    main()

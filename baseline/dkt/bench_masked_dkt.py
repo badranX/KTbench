@@ -5,7 +5,7 @@ from ktbench.model.dkt.masked_dkt import MaskedDKT
 from ktbench.model.dkt.masked_dkt import Params
 
 
-if __name__ == '__main__':
+def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = MaskedDKT
@@ -27,11 +27,14 @@ if __name__ == '__main__':
     cfg = Cfg()
     prm.separate_qa = False
     cfg.append2logdir = '_seperate_qa_True'
-    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])
+    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = datasets)
     
     print('start trining same model with _seperate_qa_False')
     prm = Params() 
     cfg = Cfg()
     prm.separate_qa = False
     cfg.append2logdir = '_seperate_qa_False'
-    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])
+    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = datasets)
+
+if __name__ == '__main__':
+    main()

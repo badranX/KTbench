@@ -1,8 +1,12 @@
 import torch.nn as nn
 import torch
+from types import SimpleNamespace
 
 from .utils.common import xavier_normal_initialization, xavier_uniform_initialization, kaiming_normal_initialization, kaiming_uniform_initialization
 from dataclasses import dataclass
+
+
+TGT_ATTRS = ['device', 'n_stu', 'n_exer', 'n_kc']
 
 @dataclass
 class Params:
@@ -20,7 +24,9 @@ class BaseModel(nn.Module):
     def __init__(self, cfg, params):
         super().__init__()
         self.prm = params
-        self.cfg = cfg
+
+        self.cfg = SimpleNamespace(**{k: getattr(cfg, k) for k in TGT_ATTRS})
+        cfg = None
         self.device = self.cfg.device
         self.set_dataset_info()
         self.is_default_eval = True

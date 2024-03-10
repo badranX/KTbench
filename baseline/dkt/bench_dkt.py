@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     @dataclass
     class Traincfg:
-        batch_size = 256
+        batch_size = 128
         eval_batch_size = 128
         n_epoch = 100
         lr = 0.001

@@ -18,9 +18,9 @@ if __name__ == '__main__':
 
     @dataclass
     class Traincfg:
-        batch_size = 256
+        batch_size = 128
         eval_batch_size = 128
-        n_epoch = 100
+        n_epoch = 1
         lr = 0.001
 
     prm = Params() 
@@ -28,7 +28,8 @@ if __name__ == '__main__':
     prm.separate_qa = False
     cfg.append2logdir = '_seperate_qa_True'
     bench_model(cfg, Traincfg(), hyper_params=prm, datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])
-
+    
+    print('start trining same model with _seperate_qa_False')
     prm = Params() 
     cfg = Cfg()
     prm.separate_qa = False

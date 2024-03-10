@@ -13,13 +13,12 @@ if __name__ == '__main__':
         is_unfold = True
         all_in_one = True
 
-        #eval_method = Trainer.EVAL_UNFOLD_REDUCE
-        eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL
+        eval_method = Trainer.EVAL_UNFOLD_REDUCE
         kfold = 5
 
     @dataclass
     class Traincfg:
-        batch_size = 32
+        batch_size = 64
         eval_batch_size = 32
         n_epoch = 100
         lr = 0.001

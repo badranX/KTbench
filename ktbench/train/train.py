@@ -1,4 +1,5 @@
 from torch import autograd
+import torch.nn.functional as F
 import random
 
 from torch.nn.utils.rnn import pad_sequence
@@ -21,10 +22,35 @@ SEED = 82
 
 
 class Collate:
-    def __init__(self, seqs=None, seqofseq=None):
+    def __init__(self, seqs=None, is_attention=False, seqofseq=None):
         self.seqs = seqs
+        self.is_attention = is_attention
+
+    def attention_pad_collate(self, batch):
+
+        all_seqs = batch[0].keys()
+        zlens = zip(*map(lambda x: x.values(), batch))
+        lens = {'lens_' + str(k)  : vlen for k, vlen in zip(batch[0].keys(), zlens) if k in self.seqs}
+        shape0 = len(batch)
+        #shape1s = map(len, tmp)
+        ak = 'ktbench_attention_mask'
+        max_seq = max(map(lambda x: len(x[ak]), batch))
+        f = lambda x: max_seq - x[ak].shape[0]
+        padseq = map(lambda x: F.pad(x, (0, f(x)), 'constant', 0), batch)
+        padseq = map(lambda x: F.pad(x.T, (0, f(x)).T, 'constant', 0), padseq)
+        #attention_seq = map(lambda x: list(x[ak]), batch)
+        z = zip(*map(lambda x: x.values(), batch))
+        batch = {k: pad_sequence(v, batch_first=True, padding_value=0)
+                       if k in self.seqs else torch.stack(v)
+               for k, v in zip(batch[0].keys(), z) if k != ak}
+
+        batch[ak] = padseq
+        batch.update(lens)        
+        return batch
 
     def pad_collate(self, batch):
+        if self.is_attention:
+            return self.attention_pad_collate(batch)
 
         all_seqs = batch[0].keys()
 
@@ -106,6 +132,7 @@ class Trainer():
         self.device =cfg.device
         self.is_padded = getattr(traincfg, 'is_padded', False)
         self.kfolds = getattr(cfg, 'kfold', 1)
+        self.is_attention= getattr(cfg, 'is_attention', False)
         self.n_stop_check = getattr(traincfg,'n_stop_check', 10)
         self.seed = getattr(self.cfg, 'seed', SEED)
         if hasattr(cfg, 'eval_method'):
@@ -148,9 +175,9 @@ class Trainer():
         seqs_train = extra + seqs + [v for v in self.cfg.train_ds[k].column_names if 'unfold' in v]
         seqs_valid = extra + seqs + [v for v in self.cfg.valid_ds[k].column_names if 'unfold' in v]
         seqs_test = extra + seqs + [v for v in self.cfg.test_ds.column_names if 'unfold' in v]
-        clt_train = Collate(seqs = seqs_train)
-        clt_test = Collate(seqs = seqs_test)
-        clt_valid = Collate(seqs = seqs_valid)
+        clt_train = Collate(seqs = seqs_train, is_attention=self.is_attention)
+        clt_test = Collate(seqs = seqs_test, is_attention=self.is_attention)
+        clt_valid = Collate(seqs = seqs_valid, is_attention=self.is_attention)
         self.train_dataloader = DataLoader(self.cfg.train_ds[k], worker_init_fn=seed_worker, shuffle=True, batch_size=self.traincfg.batch_size, collate_fn=clt_train.pad_collate)
         self.valid_dataloader = DataLoader(self.cfg.valid_ds[k], shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn=clt_valid.pad_collate)
         self.test_dataloader = DataLoader(self.cfg.test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)

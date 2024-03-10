@@ -33,6 +33,7 @@ UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfo
 QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_label_seq']
 MASKED_UNFOLD_LABELS = ['ktbench_masked_label_unfold_seq']
 TEACHER_MASKS= ['ktbench_teacher_unfold_seq_mask']
+ATTENTION_MASKS = ['ktbench_attention_mask', 'ktbench_kc_seq_mask']
 
 SEQUENCE_AXIS = {'ktbench_exer_seq_mask': -1,
                   'ktbench_kc_seq_mask': -2,
@@ -73,7 +74,8 @@ class Pipeline():
 
         self.seed = getattr(self.cfg, 'seed', SEED)
         seed_everything(self.seed)
-        self.cfg.dataset2model_feature_map = self.cfg.model_cls.MODEL_FEATURE_MAP
+        self.cfg.dataset2model_feature_map = getattr(self.cfg.model_cls, 'MODEL_FEATURE_MAP', {})
+
         self.window_size = cfg.window_size
         self.dataset_name = cfg.dataset_name
         self.is_unfold = cfg.is_unfold
@@ -86,6 +88,7 @@ class Pipeline():
             self.cfg.device = self.device
 
         self.extra_features = getattr(cfg, 'extra_features', dict())
+        self.is_attention = getattr(cfg, 'is_attention', False)
 
         self.is_unfold_fixed_window = getattr(cfg, 'is_unfold_fixed_window', False)
 
@@ -118,6 +121,8 @@ class Pipeline():
                 tgt_features += MASKED_UNFOLD_LABELS
             if self.add_teacher_mask:
                 tgt_features += TEACHER_MASKS
+            if self.is_attention:
+                tgt_features += ATTENTION_MASKS
             if self.cfg.eval_method == Trainer.EVAL_UNFOLD_REDUCE:
                 eval_tgt_features = list(set(tgt_features + REDUCE_PREDICT_KEYS))
             else:
@@ -289,7 +294,7 @@ class Pipeline():
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)
         if self.is_unfold:
-            map2 = lambda x: map_yamld_unfold(x, meta, is_mask_label=self.add_mask_label, is_teacher_mask= self.add_teacher_mask)
+            map2 = lambda x: map_yamld_unfold(x, meta, is_attention=self.is_attention, is_mask_label=self.add_mask_label, is_teacher_mask= self.add_teacher_mask)
             ds = ds.map(map2, batched=False, remove_columns=ds.column_names)
             if self.is_unfold_fixed_window:
                 map3 = lambda x: unfold_mapper(x, window_size=self.window_size)

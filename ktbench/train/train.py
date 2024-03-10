@@ -258,11 +258,11 @@ class Trainer():
         #prepare constant window-length
         tmpcat = []
         if idxslice.start:
-            prepend= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.start)
+            prepend= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.start, device=self.cfg.device)
             tmpcat.append(prepend)
         tmpcat.append(y_pd)
         if idxslice.stop:
-            append= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.stop)
+            append= -1*torch.ones(*unfold_seq_mask.shape[:-1], idxslice.stop, device=self.cfg.device)
             tmpcat.append(append)
         if len(tmpcat) > 1:
             y_pd = torch.cat(tmpcat, dim=-1)

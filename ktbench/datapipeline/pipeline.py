@@ -163,7 +163,7 @@ class Pipeline():
             map = lambda x: map_allinone_before_batch(x, len(test_ds), is_hide_label=self.add_mask_label or self.add_teacher_mask)
             test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
             test_ds = test_ds.remove_columns("ktbench_idx") 
-            test_ds = test_ds.map(map_allinone_batch, batched=True, remove_columns=test_ds.column_names)
+            test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=128, remove_columns=test_ds.column_names)
             return test_ds
         test_per = self.splits[0]
         train_valid_split_per = self.splits[1]

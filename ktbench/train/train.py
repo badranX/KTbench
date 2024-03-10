@@ -124,6 +124,7 @@ class Trainer():
         self.traincfg = traincfg
         self.traincfg.betas = (0.9, 0.999)
         self.traincfg.eps = 1e-8
+        self.is_test_all_in_one = getattr(self.cfg, 'is_test_all_in_one', False)
         
         self.is_unfold = cfg.is_unfold
         self.logs = LogsHandler(cfg)
@@ -182,6 +183,9 @@ class Trainer():
         self.valid_dataloader = DataLoader(self.cfg.valid_ds[k], shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn=clt_valid.pad_collate)
         self.test_dataloader = DataLoader(self.cfg.test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
 
+        if self.is_test_all_in_one:
+            test_test_ds = self.cfg.test_test_ds
+            self.test_test_dataloader = DataLoader(test_test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
 
     def question_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
         key_exer_seq_mask = dataset2model_feature_map.get(*2*('ktbench_exer_seq_mask',)) 
@@ -354,13 +358,16 @@ class Trainer():
     def evaluate(self, epoch_num):
         return self._evaluate(epoch_num, data_loader=self.valid_dataloader)
 
-    def _evaluate(self, epoch_num, data_loader, description="[Inference]"):
+    def _evaluate(self, epoch_num, data_loader, description="[Inference]", eval_method=None):
+        if not eval_method:
+            eval_method = self.eval_method
+
         self.model.eval()
         preds = []
         trgts = []
         for batch_id, batch in enumerate(tqdm(data_loader, desc=description)):
             y_pd, idxslice = self.model.ktbench_predict(**batch)
-            batch_eval = self.eval_method(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
+            batch_eval = eval_method(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
 
             preds.append(batch_eval['predict'])
             trgts.append(batch_eval['target'])
@@ -374,6 +381,12 @@ class Trainer():
         if not self.cfg.all_in_one:
             return self._evaluate(kfold, data_loader=self.test_dataloader, description=f"[Test fold {kfold}]")
         else:
+            if self.is_test_all_in_one:
+                tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test all_in_one fold {kfold}]", eval_method=self.kc_eval)
+                print('[INFO] test kc_level: ', tmp)
+
+                tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test all_in_one fold {kfold}]", eval_method=self.reduce_eval)
+                print('[INFO] test reduce_eval: ', tmp)
             return self._all_in_one_test(kfold, data_loader=self.test_dataloader)
 
 
@@ -391,7 +404,7 @@ class Trainer():
         ids = kwargs['ktbench_allinone_id']
 
         start =  idxslice.start if idxslice.start  else 0
-        tgt_index += start
+        tgt_index -= start
 
         #remove indices that was not calculated by the model
         max_len = y_pd.shape[-1] 
@@ -404,7 +417,6 @@ class Trainer():
             'predict': y_pd,
             'target': label,
             'ids': ids
-        
         }
         return ret
 

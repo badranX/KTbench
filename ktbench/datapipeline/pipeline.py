@@ -1,4 +1,5 @@
 from torch.utils.data import DataLoader
+import copy
 import torch
 from datasets import Dataset
 import pandas as pd
@@ -109,6 +110,7 @@ class Pipeline():
         self.add_mask_label = getattr(cfg, 'add_mask_label', False)
         self.add_teacher_mask = getattr(cfg, 'add_teacher_mask', False)
         self.cfg.all_in_one = getattr(cfg, 'all_in_one', False)
+        self.cfg.is_test_all_in_one = getattr(cfg, 'is_test_all_in_one', False)
         self.init_tgt_features()
 
         
@@ -156,6 +158,12 @@ class Pipeline():
         print('[INFO] total dataset lenght: ', len(ds))
         
         def prepare_all_in_one(test_ds):
+
+            if self.cfg.is_test_all_in_one:
+                test_test_ds = copy.deepcopy(test_ds)
+                test_test_ds = test_test_ds.select_columns(self.eval_tgt_features)
+                test_test_ds = rename_columns(test_test_ds, self.cfg.dataset2model_feature_map)
+                self.cfg.test_test_ds = test_test_ds
             new_column = range(len(test_ds))
             test_ds= test_ds.add_column("ktbench_idx", new_column)
             print('[INFO] start all_in_one test dataset processing...')

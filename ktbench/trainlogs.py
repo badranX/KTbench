@@ -24,12 +24,29 @@ class LogsHandler:
         self.windowsize = config.window_size
         self.dataset_window_folder = self.checkpoint_parent_folder / f"{self.datasetname}_{self.windowsize}"
         
-    def train_starts(self, model_name):
+    def train_starts(self, model_name, cfg, traincfg):
         self.timestamp = datetime.now().strftime("%Ss%Mm%Hh-%dD%mM%YY")
         append = getattr(self.cfg, 'append2logdir', '')
         self.current_checkpoint_folder = self.dataset_window_folder/(model_name + append)/self.timestamp
 
         self.current_checkpoint_folder.mkdir(parents=True, exist_ok=True)
+        #save training parameters
+        from numbers import Number
+        def vdir(obj):
+            return {x: getattr(obj, x) for x in dir(obj) if not x.startswith('__')}
+        
+        def imp(obj):
+            tmp= {k: v for k,v in vdir(obj).items() if isinstance(v, Number) or
+                     isinstance(v, bool) or
+                     isinstance(v, str) or
+                     isinstance(v, list) or
+                     isinstance(v, tuple) 
+                     }
+            tmp.update({k:list(v) for k,v in tmp.items() if isinstance(v, tuple)})
+            return tmp
+
+        yamld.write_metadata(self.current_checkpoint_folder/'traincfg.yaml', imp(traincfg))
+        yamld.write_metadata(self.current_checkpoint_folder/'cfg.yaml', imp(cfg))
 
     def save_checkpoint(self, model, optimizer, epoch, loss, accuracy):
         checkpoint_filename = self.current_checkpoint_folder / "checkpoint.pth"

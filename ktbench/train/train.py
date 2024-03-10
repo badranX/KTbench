@@ -96,6 +96,8 @@ class Trainer():
         self.hyper_param = hyper_param
         self.cfg = cfg
         self.traincfg = traincfg
+        self.traincfg.betas = (0.9, 0.999)
+        self.traincfg.eps = 1e-8
         
         self.is_unfold = cfg.is_unfold
         self.logs = LogsHandler(cfg)
@@ -128,7 +130,7 @@ class Trainer():
             self.model = self.cfg.model_cls(self.cfg).to(self.cfg.device)
         self.traincfg.model  = self.model
         self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=self.traincfg.lr, betas=(0.9, 0.999), eps=1e-8)
+            self.model.parameters(), lr=self.traincfg.lr, betas=self.traincfg.betas, eps=self.traincfg.eps)
         return self.model
 
     def init_dataloader(self, k):
@@ -259,7 +261,7 @@ class Trainer():
 
 
     def start(self):
-        self.logs.train_starts(self.cfg.model_cls.__name__)
+        self.logs.train_starts(self.cfg.model_cls.__name__, self.traincfg, self.cfg)
         models = []
         test_logs = []
         for kfold in range(1, self.kfolds + 1):

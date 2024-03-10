@@ -40,18 +40,19 @@ class MaskedKQN(BaseModel):
     
     def build_model(self):
         # helper variable for making a one-hot vector for rnn input
-        self.inter_emb = torch.eye(self.n_item * 3).to(self.device)
+        #self.inter_emb = torch.eye(self.n_item * 3).to(self.device)
+        self.inter_emb = nn.Embedding(self.n_item*3, 2*self.n_item)
         # helper variable for making a one-hot vector for skills
         self.cpt_emb = torch.eye(self.n_item).to(self.device)
 
         if self.prm.rnn_or_lstm == 'gru':
             self.seq_model = nn.GRU(
-                3 * self.n_item, self.prm.rnn_hidden_size, 
+                2 * self.n_item, self.prm.rnn_hidden_size, 
                 self.prm.n_rnn_layers, batch_first=True
             )
         else:
             self.seq_model = nn.LSTM(
-                3 * self.n_item, self.prm.rnn_hidden_size, 
+                2 * self.n_item, self.prm.rnn_hidden_size, 
                 self.prm.n_rnn_layers, batch_first=True
             )
         

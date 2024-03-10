@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from ktbench.train import Trainer
 from ktbench.model.kqn.kqn import KQN
 
-def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2008_es_en']):
+def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = KQN
         window_size = 150
         is_unfold = True
-        all_in_one = True
+        #all_in_one = True
 
         eval_method = Trainer.EVAL_UNFOLD_REDUCE
         kfold = 5

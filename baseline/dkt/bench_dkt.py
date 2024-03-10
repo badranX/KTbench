@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from ktbench.train import Trainer
 from ktbench.model.dkt.dkt import DKT
 
-def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2008_es_en']):
+def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = DKT

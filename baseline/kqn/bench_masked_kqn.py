@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from ktbench.train import Trainer
 from ktbench.model.kqn.masked_kqn import MaskedKQN
 
-def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2008_es_en']):
+def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = MaskedKQN
@@ -25,4 +25,4 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2008_es_en']):
 
 
 if __name__ == '__main__':
-    main()
+    main(['duolingo2018_es_en'])

@@ -23,4 +23,4 @@ if __name__ == '__main__':
         n_epoch = 100
         lr = 0.001
     
-    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'duolingo2008_es_en'])
+    bench_model(Cfg(), Traincfg(), datasets = ['assist2009', 'corr_assist2009', 'duolingo2018_es_en'])

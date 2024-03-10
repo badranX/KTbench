@@ -19,6 +19,7 @@ def bench_model(cfg, traincfg, datasets=None, hyper_params=None):
         datasets = [cfg.dataset_name]
         
     for ds in datasets:
+        print("training model:", cfg.model_cls.__name__)
         print("start training dataset", ds)
         cfg.dataset_name = ds 
         init_datapipeline(cfg)

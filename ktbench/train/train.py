@@ -331,7 +331,7 @@ class Trainer():
                         print(f"[INFO] stopped training at epoch number {epoch}, no improvement in last {self.n_stop_check} epochs")
                         break
                     
-            self.model = self.logs.load_best_model(self.model.__class__, kfold)
+            self.model = self.logs.load_best_model(self.device, self.model.__class__, kfold)
             tests = self.test(kfold)
             tests.update({'kfold': kfold, 
                           'best_epcoh': best_epoch,

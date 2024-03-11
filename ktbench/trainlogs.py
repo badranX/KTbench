@@ -77,7 +77,7 @@ class LogsHandler:
 
         return model, optimizer, checkpoint['epoch']
 
-    def load_best_model(self, ModelClass, kfold):
+    def load_best_model(self, device, ModelClass, kfold):
         best_model_filename = self.current_checkpoint_folder/f"best_model_fold_{kfold}.pth"
 
         # Load best model state
@@ -85,7 +85,7 @@ class LogsHandler:
         model = ModelClass(cfg=checkpoint['config'], params=checkpoint['prm'])
         model.load_state_dict(checkpoint['model_state_dict'])
 
-        return model
+        return model.to(device)
 
     def save_best_model(self, model, best_epoch, kfold):
         best_model_filename = self.current_checkpoint_folder/f"best_model_fold_{kfold}.pth"

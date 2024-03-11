@@ -268,21 +268,21 @@ class Trainer():
             y_pd = torch.cat(tmpcat, dim=-1)
         #end prepare constant window length
 
-        lens = kc_seq_mask[:,1:-1].sum(-1)[mask[:,1:-1]==1]
+        lens = kc_seq_mask[:,1:].sum(-1)[mask[:,1:]==1]
         #tmp = torch.zeros(*kc_seq_mask.shape, dtype=y_pd.dtype).to(self.device)
         tmp = kc_seq_mask.float()
         #todo make sure masked exersies, is treated as exer 0 and mapped in kc_seq_mask
         tmp[kc_seq_mask==1] = y_pd[unfold_seq_mask == 1]
         #TODO adjust this
-        tmp = tmp[:,1:-1]  #remove 1st and last question from window
+        tmp = tmp[:,1:]  #remove 1st {-and last-} question from window
 
         #mean reduce
-        y_pd = tmp.sum(-1)[mask[:,1:-1]==1]/lens
+        y_pd = tmp.sum(-1)[mask[:,1:]==1]/lens
 
         #switch prediction to question-based
-        y_gt = kwargs[key_ktbench_label_seq][:, 1:-1]  #remove 1st question
+        y_gt = kwargs[key_ktbench_label_seq][:, 1:]  #remove 1st question
 
-        y_gt = y_gt[mask[:,1:-1]==1]
+        y_gt = y_gt[mask[:,1:]==1]
 
         return {
             'predict': y_pd,

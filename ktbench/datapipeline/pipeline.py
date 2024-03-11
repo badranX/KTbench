@@ -172,6 +172,7 @@ class Pipeline():
             test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
             test_ds = test_ds.remove_columns("ktbench_idx") 
             test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=128, remove_columns=test_ds.column_names)
+            test_ds= test_ds.with_format("torch", device= self.device)
             return test_ds
         test_per = self.splits[0]
         train_valid_split_per = self.splits[1]

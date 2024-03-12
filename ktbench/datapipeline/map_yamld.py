@@ -60,6 +60,7 @@ def map_yamld(entry, meta):
 
         window_size = meta.max_exer_window_size
         entry.exer_seq_mask = lens2mask(entry.lens_seq, window_size)
+        entry.__dict__.pop('lens_seq')
         entry.kc_seq = meta.kc_seq_padding[entry.exer_seq,:]
 
         #TODO optimize meta mask calculations  max()
@@ -93,6 +94,7 @@ def map_yamld_unfold(entry, meta, is_mask_label=False, is_teacher_mask=False, is
 
         window_size = meta.max_exer_window_size
         entry.exer_seq_mask = lens2mask(entry.lens_seq, window_size)
+        entry.__dict__.pop('lens_seq')
         entry.kc_seq = meta.kc_seq_padding[entry.exer_seq,:]
         #max_kcs_per_exer = meta.max_kcs_per_exerc_seq_lens.max()
         #meta.kc_seq_mask = lens2mask(meta.kc_seq_lens, max_kcs_per_exer)
@@ -163,7 +165,6 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
         expanded_label_seq = entry.ktbench_label_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
         expanded_exer_seq = entry.ktbench_exer_seq.unsqueeze(-1)*entry.ktbench_kc_seq_mask
         
-        ret = entry.__dict__
         new.ktbench_kc_unfold_seq = []
         new.ktbench_unfold_seq_mask = []
         new.ktbench_label_unfold_seq = []
@@ -177,6 +178,9 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                 new.ktbench_masked_label_unfold_seq = []
                 new.ktbench_teacher_unfold_seq_mask = []
                 clone_kc_seq_mask = entry.ktbench_kc_seq_mask.clone()
+                
+        tgt_replicate_keys = set(entry.__dict__.keys()) - set(new.__dict__.keys())
+        new.__dict__.update({k: [] for k in tgt_replicate_keys})
 
         for idx  in range(2, entry.ktbench_exer_seq_mask.shape[-1] + 1):
                 if entry.ktbench_exer_seq_mask[idx - 1] == 0:
@@ -190,7 +194,7 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                 label_unfold_seq = expanded_label_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
                 exer_unfold_seq = expanded_exer_seq[:idx][entry.ktbench_kc_seq_mask[:idx] == 1]
 
-                tmplen = entry.ktbench_kc_seq_mask[idx-1].sum(-1)
+                tmplen = entry.ktbench_kc_seq_mask[idx-1].sum(-1).item()
                 seqlen = exer_unfold_seq.shape[-1] - tmplen
                 indices = [list(range(seqlen)) + [seqlen+j] for j in range(tmplen)]
                 #tgt = torch.zeros(seqlen+1)
@@ -215,25 +219,14 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                 #new.ktbench_allinone_mask += [tgt]*tmplen
                 new.ktbench_allinone_tgt_index += [seqlen]*tmplen
 
-                new.ktbench_kc_unfold_seq += list(out[None,indices].squeeze(0))
-                new.ktbench_unfold_seq_mask += list(out_mask[None, indices].squeeze(0))
-                new.ktbench_label_unfold_seq += list(label_unfold_seq[None,indices].squeeze(0))
-                new.ktbench_exer_unfold_seq += list(exer_unfold_seq[None,indices].squeeze(0))
+                new.ktbench_kc_unfold_seq += list(out[None,indices].squeeze(0).tolist())
+                new.ktbench_unfold_seq_mask += list(out_mask[None, indices].squeeze(0).tolist())
+                new.ktbench_label_unfold_seq += list(label_unfold_seq[None,indices].squeeze(0).tolist())
+                new.ktbench_exer_unfold_seq += list(exer_unfold_seq[None,indices].squeeze(0).tolist())
+                new.__dict__.update({k: new.__dict__[k] + tmplen*[entry.__dict__[k].tolist()] for k in tgt_replicate_keys})
                 
-        ret = entry.__dict__
-        for k in new.__dict__.keys():
-                ret.pop(k, None)
-        tmp = {f"{ALLINONETAG}{key}": value for key, value in new.__dict__.items()}
-        ret.update(tmp)
-        return ret
+        return new.__dict__
+
 
 def map_allinone_batch(entry):
-        for k, v in entry.items():
-                if k.startswith(ALLINONETAG):
-                        replicate = [len(v) for v in entry[k]]
-                        break
-        new = {k : [[vv]*rep for rep ,vv in zip(replicate, v)] for k, v in entry.items() if not k.startswith(ALLINONETAG)}
-        new2= {k[len(ALLINONETAG):]: v for  k, v in entry.items() if k.startswith(ALLINONETAG)}
-        new.update(new2)
-        new = {k: [item for vv in v for item in vv] for k, v in new.items()}
-        return new
+        return {k: [item for vv in v for item in vv] for k, v in entry.items()}

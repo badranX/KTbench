@@ -158,7 +158,6 @@ class Pipeline():
         print('[INFO] total dataset lenght: ', len(ds))
         
         def prepare_all_in_one(test_ds):
-
             if self.cfg.is_test_all_in_one:
                 test_test_ds = copy.deepcopy(test_ds)
                 test_test_ds = test_test_ds.select_columns(self.eval_tgt_features)
@@ -171,7 +170,7 @@ class Pipeline():
             map = lambda x: map_allinone_before_batch(x, len(test_ds), is_hide_label=self.add_mask_label or self.add_teacher_mask)
             test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
             test_ds = test_ds.remove_columns("ktbench_idx") 
-            test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=128, remove_columns=test_ds.column_names)
+            test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=1, remove_columns=test_ds.column_names)
             test_ds= test_ds.with_format("torch", device= self.device)
             return test_ds
         test_per = self.splits[0]
@@ -181,10 +180,9 @@ class Pipeline():
             train_ds, valid_ds = extra_ds.train_test_split(train_size=train_valid_split_per, shuffle=True, seed=self.seed).values()
             train_ds = train_ds.select_columns(self.tgt_features)
             valid_ds = valid_ds.select_columns(self.eval_tgt_features)
+            test_ds = test_ds.select_columns(self.eval_tgt_features)
             if self.cfg.all_in_one:
                 test_ds = prepare_all_in_one(test_ds)
-            else:
-                test_ds = test_ds.select_columns(self.eval_tgt_features)
 
             test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
             train_ds = rename_columns(train_ds, self.cfg.dataset2model_feature_map)

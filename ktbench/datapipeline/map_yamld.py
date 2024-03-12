@@ -157,7 +157,7 @@ def map_yamld_unfold(entry, meta, is_mask_label=False, is_teacher_mask=False, is
 
 
 ALLINONETAG = 'allinone_ktbench_'
-def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
+def map_allinone_before_batch(entry, tgt_features, is_hide_label=False):
         entry = SimpleNamespace(**entry)
 
         new = SimpleNamespace()
@@ -179,7 +179,8 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
                 new.ktbench_teacher_unfold_seq_mask = []
                 clone_kc_seq_mask = entry.ktbench_kc_seq_mask.clone()
                 
-        tgt_replicate_keys = set(entry.__dict__.keys()) - set(new.__dict__.keys())
+        tgt_replicate_keys = set(tgt_features) - set(new.__dict__.keys())
+        tgt_replicate_keys = tgt_replicate_keys.intersection(set(entry.__dict__.keys()))
         new.__dict__.update({k: [] for k in tgt_replicate_keys})
 
         for idx  in range(2, entry.ktbench_exer_seq_mask.shape[-1] + 1):
@@ -228,5 +229,16 @@ def map_allinone_before_batch(entry, orignal_lean, is_hide_label=False):
         return new.__dict__
 
 
-def map_allinone_batch(entry):
+def tmp_map_allinone_batch(entry):
         return {k: [item for vv in v for item in vv] for k, v in entry.items()}
+
+
+def map_allinone_batch(entry):
+        ret = dict()
+        for k, v in entry.items():
+                result = []
+                extend = result.extend
+                for l in v:
+                        extend(l)
+                ret[k] = result
+        return ret

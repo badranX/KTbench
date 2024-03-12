@@ -129,16 +129,16 @@ class MaskedAKT(BaseModel):
         m = nn.Sigmoid()
         ktbench_preds = m(output.squeeze(-1))
         preds = output.squeeze(-1)#.reshape(-1))  # logit #changed from original
-        mask = kwargs['ktbench_unfold_seq_mask']
+        mask = kwargs['ktbench_unfold_seq_mask'] == 1
         #mask = labels > -0.9 #changed from original
         masked_labels = target[mask].float()
         masked_preds = preds[mask]
         loss = nn.BCEWithLogitsLoss(reduction='none')
         output = loss(masked_preds, masked_labels)
-        return output.sum()+c_reg_loss, m(preds), mask.sum(), ktbench_preds
+        return output.sum()+c_reg_loss, m(preds), mask.sum()
 
     def losses(self, **batch):
-        loss, preds, _, _ = self(**batch)
+        loss, _, _ = self(**batch)
 
         return {
             'loss_main': loss
@@ -146,34 +146,9 @@ class MaskedAKT(BaseModel):
 
     @torch.no_grad()
     def ktbench_predict(self, **kwargs):
-        loss, preds, _, ktbench_preds = self(**kwargs)
+        loss, ktbench_preds, _ = self(**kwargs)
         #mask = kwargs['mask_seq'][:, :] == 1
         return ktbench_preds, slice(None,None)
-        labels = kwargs['target'].reshape(-1)
-        preds = preds.reshape(-1)
-        mask = labels > -0.9
-
-        masked_labels = labels[mask].float()
-        masked_preds = preds[mask]
-        return {
-            'predict': masked_preds,
-            'target': masked_labels
-        }
-
-    @torch.no_grad()
-    def predict_batch(self, **kwargs):
-        loss, preds, _ = self(**kwargs)
-        #mask = kwargs['mask_seq'][:, :] == 1
-        labels = kwargs['target'].reshape(-1)
-        preds = preds.reshape(-1)
-        mask = labels > -0.9
-
-        masked_labels = labels[mask].float()
-        masked_preds = preds[mask]
-        return {
-            'predict': masked_preds,
-            'target': masked_labels
-        }
 
 
 class Architecture(nn.Module):

@@ -6,6 +6,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader#, load_from_disk
 import datetime
 from ..trainlogs import LogsHandler
+from ..datapipeline.pipeline import Pipeline, rename_columns
 import os
 from dataclasses import dataclass
 import torch
@@ -102,22 +103,11 @@ def compute_metrics(all_target, all_pred):
 
 
 class Trainer():
-
-    EVAL_QUESTION_LEVEL, \
-    EVAL_UNFOLD_KC_LEVEL, \
-    EVAL_UNFOLD_REDUCE, \
-    EVAL_UNFOLD_STEP, \
-    *_ = range(10)
-    
-    TEST_LIKE_EVAL, \
-    TEST_STEP, \
-    *_ = range(10)
-
     def __init__(self, traincfg, cfg, hyper_param=None):
         self.inference_methods = {
-            self.EVAL_QUESTION_LEVEL: self.question_eval,
-            self.EVAL_UNFOLD_REDUCE: self.reduce_eval,
-            self.EVAL_UNFOLD_KC_LEVEL: self.kc_eval,
+            Pipeline.EVAL_QUESTION_LEVEL: self.question_eval,
+            Pipeline.EVAL_UNFOLD_REDUCE: self.reduce_eval,
+            Pipeline.EVAL_UNFOLD_KC_LEVEL: self.kc_eval,
         }
         self.hyper_param = hyper_param
         self.cfg = cfg
@@ -140,15 +130,17 @@ class Trainer():
             eval_method = cfg.eval_method
         else:
             if not self.is_unfold:
-                eval_method = self.EVAL_QUESTION_LEVEL
+                eval_method = Pipeline.EVAL_QUESTION_LEVEL
             else:
-                eval_method = self.EVAL_UNFOLD_REDUCE
+                eval_method = Pipeline.EVAL_UNFOLD_REDUCE
         try:
             self.eval_method = self.inference_methods[eval_method]
         except KeyError as e:
             Exception('Unsuperted inference method : ' + e.message)
 
         self.n_epoch = self.traincfg.n_epoch
+        if self.cfg.all_in_one:
+            self.splits = self.split_test_ds()
 
         
     def init_model(self):
@@ -161,6 +153,25 @@ class Trainer():
             self.model.parameters(), lr=self.traincfg.lr, betas=self.traincfg.betas, eps=self.traincfg.eps)
         return self.model
 
+    def split_test_ds(self):
+        ds = self.cfg.test_ds
+        avgkc = self.cfg.avg_kc_per_exer
+        window_size = self.cfg.window_size
+        expected_kc_len  = window_size*avgkc*len(ds)
+        #max_kc_len = 1000000
+        max_kc_len = 100000
+        if max_kc_len >= expected_kc_len:
+            self.splits = [ds]
+        else:
+            import math
+            num_splits = math.ceil(expected_kc_len/max_kc_len)
+            split_size = math.ceil(len(ds)/num_splits)
+            splits = [(i*split_size, min((i+1)*max_kc_len, len(ds))) for i in range(num_splits)]
+            if len(ds) != splits[-1][-1]:
+                splits.append((splits[-1][-1], len(ds)))
+            self.splits = [ds.select(range(*x)) for x in splits]
+        return self.splits
+        
     def init_dataloader(self, k):
         def seed_worker(worker_id):
             worker_seed = torch.initial_seed() % 2**32
@@ -177,15 +188,15 @@ class Trainer():
         seqs_valid = extra + seqs + [v for v in self.cfg.valid_ds[k].column_names if 'unfold' in v]
         seqs_test = extra + seqs + [v for v in self.cfg.test_ds.column_names if 'unfold' in v]
         clt_train = Collate(seqs = seqs_train, is_attention=self.is_attention)
-        clt_test = Collate(seqs = seqs_test, is_attention=self.is_attention)
+        self.clt_test = Collate(seqs = seqs_test, is_attention=self.is_attention)
         clt_valid = Collate(seqs = seqs_valid, is_attention=self.is_attention)
         self.train_dataloader = DataLoader(self.cfg.train_ds[k], worker_init_fn=seed_worker, shuffle=True, batch_size=self.traincfg.batch_size, collate_fn=clt_train.pad_collate)
         self.valid_dataloader = DataLoader(self.cfg.valid_ds[k], shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn=clt_valid.pad_collate)
-        self.test_dataloader = DataLoader(self.cfg.test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
-
+        if not self.cfg.all_in_one:
+            self.test_dataloader = DataLoader(self.cfg.test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= self.clt_test.pad_collate)
         if self.is_test_all_in_one:
             test_test_ds = self.cfg.test_test_ds
-            self.test_test_dataloader = DataLoader(test_test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= clt_test.pad_collate)
+            self.test_test_dataloader = DataLoader(test_test_ds, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= self.clt_test.pad_collate)
 
     def question_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
         key_exer_seq_mask = dataset2model_feature_map.get(*2*('ktbench_exer_seq_mask',)) 
@@ -387,7 +398,7 @@ class Trainer():
 
                 tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test all_in_one fold {kfold}]", eval_method=self.reduce_eval)
                 print('[INFO] test reduce_eval: ', tmp)
-            return self._all_in_one_test(kfold, data_loader=self.test_dataloader)
+            return self._all_in_one_test(kfold)
 
 
     def _all_in_one_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
@@ -420,18 +431,23 @@ class Trainer():
         }
         return ret
 
-    def _all_in_one_test(self, kfold, data_loader):
+    def _all_in_one_test(self, kfold):
         self.model.eval()
         preds = {}
         trgts = {}
-        for id, batch in enumerate(tqdm(data_loader, desc='all_in_one test fold {}'.format(kfold))):
-            y_pd, idxslice = self.model.ktbench_predict(**batch)
-            batch_eval = self._all_in_one_eval(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
-            batch_ids = batch_eval['ids']
-            batch_preds = batch_eval['predict']
-            batch_tgt = batch_eval['target']
-            preds.update({id: preds.get(id, []) + [pred] for id, pred in zip(batch_ids, batch_preds)})
-            trgts.update(dict(zip(batch_ids, batch_tgt)))
+        for i, test_split in enumerate(self.splits):
+            test_split = Pipeline.prepare_all_in_one(test_split, self.cfg)
+            #test_split = test_split.select_columns(self.cfg.eval_tgt_features)
+            test_split= rename_columns(test_split, self.cfg.dataset2model_feature_map)
+            split_loader = DataLoader(test_split, shuffle=False, batch_size=self.traincfg.eval_batch_size, collate_fn= self.clt_test.pad_collate)
+            for id, batch in enumerate(tqdm(split_loader, desc='all_in_one test fold {} and split {} out of {}'.format(kfold, i+1, len(self.splits)))):
+                y_pd, idxslice = self.model.ktbench_predict(**batch)
+                batch_eval = self._all_in_one_eval(y_pd, idxslice, self.cfg.dataset2model_feature_map, **batch)
+                batch_ids = batch_eval['ids']
+                batch_preds = batch_eval['predict']
+                batch_tgt = batch_eval['target']
+                preds.update({id: preds.get(id, []) + [pred] for id, pred in zip(batch_ids, batch_preds)})
+                trgts.update(dict(zip(batch_ids, batch_tgt)))
 
         preds = map(lambda x: sum(x)/len(x), preds.values())
         trgts = list(trgts.values())
@@ -439,3 +455,4 @@ class Trainer():
         trgts = torch.hstack(trgts).cpu().detach().numpy()
 
         return compute_metrics(trgts, preds)
+

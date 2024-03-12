@@ -1,6 +1,6 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
-from ktbench.train import Trainer
+from ktbench.datapipeline.pipeline import Pipeline
 from ktbench.model.akt.masked_akt import MaskedAKT
 
 
@@ -12,7 +12,7 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
         add_mask_label = True
         is_unfold = True
 
-        eval_method = Trainer.EVAL_UNFOLD_REDUCE
+        eval_method = Pipeline.EVAL_UNFOLD_REDUCE
         kfold = 5
 
     @dataclass

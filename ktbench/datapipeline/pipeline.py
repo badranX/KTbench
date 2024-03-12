@@ -11,7 +11,6 @@ from .map_yamld import unfold_mapper, map_yamld, map_yamld_unfold, features_to_t
 from .map_yamld import map_allinone_batch, map_allinone_before_batch
 
 from .middata_manager import download_dataset, gitdownload
-from ..train import Trainer
 from ..trainlogs import KTBENCH_FOLDER
 
 
@@ -70,6 +69,15 @@ def seed_everything(seed: int):
     #torch.backends.cudnn.benchmark = True
 
 class Pipeline():
+    EVAL_QUESTION_LEVEL, \
+    EVAL_UNFOLD_KC_LEVEL, \
+    EVAL_UNFOLD_REDUCE, \
+    EVAL_UNFOLD_STEP, \
+    *_ = range(10)
+    
+    TEST_LIKE_EVAL, \
+    TEST_STEP, \
+    *_ = range(10)
     def __init__(self, cfg):
         self.cfg = cfg
 
@@ -125,13 +133,13 @@ class Pipeline():
                 tgt_features += TEACHER_MASKS
             if self.is_attention:
                 tgt_features += ATTENTION_MASKS
-            if self.cfg.eval_method == Trainer.EVAL_UNFOLD_REDUCE:
+            if self.cfg.eval_method == self.EVAL_UNFOLD_REDUCE:
                 eval_tgt_features = list(set(tgt_features + REDUCE_PREDICT_KEYS))
             else:
                 eval_tgt_features = tgt_features
             
             if self.is_unfold_fixed_window:
-                assert self.cfg.eval_method != Trainer.EVAL_UNFOLD_REDUCE
+                assert self.cfg.eval_method != self.EVAL_UNFOLD_REDUCE
                 #Mostly it is done this way in other works
                 tgt_features = extra_features + [x for x in tgt_features if 'unfold' in x or x == 'stu_id']
                 eval_tgt_features = extra_features + [x for x in eval_tgt_features if 'unfold' in x or x == 'stu_id']
@@ -141,6 +149,7 @@ class Pipeline():
             eval_tgt_features = tgt_features
         self.tgt_features = tgt_features
         self.eval_tgt_features = eval_tgt_features
+        self.cfg.eval_tgt_features = eval_tgt_features
 
 
     def generate_hg_dataset(self):
@@ -149,6 +158,24 @@ class Pipeline():
         ds = ds.with_format("torch", device= self.device)
         return ds 
 
+    @staticmethod
+    def prepare_all_in_one(test_ds, cfg):
+        if getattr(cfg, 'is_test_all_in_one', False):
+            test_test_ds = copy.deepcopy(test_ds)
+            test_test_ds = rename_columns(test_test_ds, cfg.dataset2model_feature_map)
+            cfg.test_test_ds = test_test_ds
+        new_column = range(len(test_ds))
+        test_ds= test_ds.add_column("ktbench_idx", new_column)
+        print('[INFO] start all_in_one test dataset processing...')
+        print('[INFO] test len: ', len(test_ds))
+        add_mask_label = getattr(cfg,'add_mask_label', False)
+        add_teacher_mask = getattr(cfg,'add_teacher_mask', False)
+        map = lambda x: map_allinone_before_batch(x, tgt_features= cfg.eval_tgt_features, is_hide_label=add_mask_label or add_teacher_mask)
+        test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
+        #test_ds = test_ds.remove_columns("ktbench_idx") 
+        test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=1, remove_columns=test_ds.column_names)
+        test_ds= test_ds.with_format("torch", device= cfg.device)
+        return test_ds
     
     def split_dataset(self, ds):
         l_train_ds  = []
@@ -157,22 +184,6 @@ class Pipeline():
         ds = ds.shuffle(seed=self.seed)
         print('[INFO] total dataset lenght: ', len(ds))
         
-        def prepare_all_in_one(test_ds):
-            if self.cfg.is_test_all_in_one:
-                test_test_ds = copy.deepcopy(test_ds)
-                test_test_ds = test_test_ds.select_columns(self.eval_tgt_features)
-                test_test_ds = rename_columns(test_test_ds, self.cfg.dataset2model_feature_map)
-                self.cfg.test_test_ds = test_test_ds
-            new_column = range(len(test_ds))
-            test_ds= test_ds.add_column("ktbench_idx", new_column)
-            print('[INFO] start all_in_one test dataset processing...')
-            print('[INFO] test len: ', len(test_ds))
-            map = lambda x: map_allinone_before_batch(x, len(test_ds), is_hide_label=self.add_mask_label or self.add_teacher_mask)
-            test_ds = test_ds.map(map, batched=False, remove_columns=test_ds.column_names)
-            test_ds = test_ds.remove_columns("ktbench_idx") 
-            test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=1, remove_columns=test_ds.column_names)
-            test_ds= test_ds.with_format("torch", device= self.device)
-            return test_ds
         test_per = self.splits[0]
         train_valid_split_per = self.splits[1]
         if self.kfolds == 1:
@@ -180,11 +191,13 @@ class Pipeline():
             train_ds, valid_ds = extra_ds.train_test_split(train_size=train_valid_split_per, shuffle=True, seed=self.seed).values()
             train_ds = train_ds.select_columns(self.tgt_features)
             valid_ds = valid_ds.select_columns(self.eval_tgt_features)
-            test_ds = test_ds.select_columns(self.eval_tgt_features)
-            if self.cfg.all_in_one:
-                test_ds = prepare_all_in_one(test_ds)
+            if False and self.cfg.all_in_one:
+                test_ds = self.prepare_all_in_one(test_ds, self.cfg)
 
-            test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
+            if not self.cfg.all_in_one:
+                test_ds = test_ds.select_columns(self.eval_tgt_features)
+                test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
+
             train_ds = rename_columns(train_ds, self.cfg.dataset2model_feature_map)
             valid_ds = rename_columns(valid_ds, self.cfg.dataset2model_feature_map)
             l_train_ds.append(train_ds)
@@ -194,11 +207,13 @@ class Pipeline():
 
             test_ds, rest_ds = ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
 
-            if self.cfg.all_in_one:
-                test_ds = prepare_all_in_one(test_ds)
-            else:
+            if False and self.cfg.all_in_one:
+                test_ds = self.prepare_all_in_one(test_ds, self.cfg)
+
+            if not self.cfg.all_in_one:
                 test_ds = test_ds.select_columns(self.eval_tgt_features)
-            test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
+                test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
+
             folds = KFold(n_splits=self.kfolds, shuffle=True, random_state=self.seed)
             splits = folds.split(np.zeros(rest_ds.num_rows))
             for train_idxs, valid_idxs in splits:
@@ -328,6 +343,7 @@ class Pipeline():
 
         self.cfg.n_exer=meta['n_exer']
         self.cfg.n_kc=meta['n_kc']
+        self.cfg.avg_kc_per_exer = meta['avg_kc_per_exer']
         if 'n_stu' in meta:
             self.cfg.n_stu = meta['n_stu']
         else:

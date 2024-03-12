@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import yamld
 from pathlib import Path
 import torch
@@ -9,13 +10,17 @@ import time
 
 
 KTBENCH_FOLDER = ".ktbench"
+ENV_FOLDER = "KTBENCH_DIR"
 
 class LogsHandler:
     def __init__(self, config, checkpoint_parent_folder=None):
-        current_directory = Path.cwd()
-        if checkpoint_parent_folder:
-            self.checkpoint_parent_folder = checkpoint_parent_folder
+        env_bench_folder = os.environ.get(ENV_FOLDER)
+        if env_bench_folder:
+            self.checkpoint_parent_folder = Path(env_bench_folder)
+        elif checkpoint_parent_folder:
+                self.checkpoint_parent_folder = checkpoint_parent_folder
         else:
+            current_directory = Path.cwd()
             self.checkpoint_parent_folder  = current_directory / KTBENCH_FOLDER
             if not self.checkpoint_parent_folder.exists():
                 self.checkpoint_parent_folder.mkdir()

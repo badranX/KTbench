@@ -402,14 +402,7 @@ class Trainer():
 
 
     def _all_in_one_eval(self, y_pd, idxslice, dataset2model_feature_map, **kwargs):
-        key_exer_seq_mask = dataset2model_feature_map.get(*2*('ktbench_exer_seq_mask',)) 
-        key_kc_seq_mask = dataset2model_feature_map.get(*2*('ktbench_kc_seq_mask',))
-        key_unfold_seq_mask = dataset2model_feature_map.get(*2*('ktbench_unfold_seq_mask',))
-        key_ktbench_label_seq = dataset2model_feature_map.get(*2*('ktbench_label_seq',))
 
-        mask = kwargs[key_exer_seq_mask]
-        kc_seq_mask = kwargs[key_kc_seq_mask]
-        unfold_seq_mask = kwargs[key_unfold_seq_mask]
         tgt_index = kwargs['ktbench_allinone_tgt_index']
         label = kwargs['ktbench_allinone_label']
         ids = kwargs['ktbench_allinone_id']

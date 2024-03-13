@@ -139,11 +139,24 @@ def read_tests(directory_path, full=False):
                 if testfile.exists():
                     print(open(testfile, 'r').read())
     else:
+        import pandas as pd
+        out_df = pd.DataFrame()
+        listoflists = []
+        columns = ['dataset', 'model', 'auc', 'acc']
         for k, timel in meta_data.items():
             print('### ', k)
+            row = [k[0], k[1]]
             for traintime, df in timel:
                 print('##### ', traintime)
                 print(df.mean())
+                results = df.mean()
+                row.extend([results['auc'], results['acc']])
+            listoflists.append(row)
+        df = pd.DataFrame(listoflists)
+        df.columns = columns
+        
+        print(df.to_latex())
+                
 
 
     return timestamp_folders

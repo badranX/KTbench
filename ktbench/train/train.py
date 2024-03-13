@@ -160,7 +160,7 @@ class Trainer():
         window_size = self.cfg.window_size
         stdkcs = dataset2stdkcs.get(self.cfg.dataset_name, 1)
         expected_kc_len  = window_size*avgkc*len(ds)*stdkcs
-        max_kc_len = 1000000
+        max_kc_len = 100000
         if max_kc_len >= expected_kc_len:
             self.splits = [ds]
         else:

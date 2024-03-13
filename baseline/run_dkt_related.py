@@ -9,14 +9,3 @@ bench_masked_dkt.main(datasets1)
 #round two
 bench_dkt.main(datasets2)
 bench_masked_dkt.main(datasets2)
-#round1
-#bench_kqn.main(datasets1)
-#bench_masked_kqn.main(datasets1)
-bench_akt.main(datasets1)
-bench_masked_akt.main(datasets1)
-#round 2
-bench_akt.main(datasets2)
-bench_masked_akt.main(datasets2)
-
-
-

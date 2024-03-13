@@ -4,7 +4,7 @@ from ktbench.datapipeline.pipeline import Pipeline
 from ktbench.model.akt.akt import AKT
 
 
-def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
+def main(datasets=['duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = AKT
@@ -18,8 +18,8 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
 
     @dataclass
     class Traincfg:
-        batch_size = 24
-        eval_batch_size = 24
+        batch_size = 2
+        eval_batch_size = 2
         n_epoch = 100
         lr = 0.001
     

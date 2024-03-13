@@ -142,6 +142,7 @@ class Trainer():
         self.n_epoch = self.traincfg.n_epoch
         if self.cfg.all_in_one:
             self.splits = self.split_test_ds()
+            print('number of splits: ', len(self.splits))
 
         
     def init_model(self):
@@ -161,6 +162,8 @@ class Trainer():
         stdkcs = dataset2stdkcs.get(self.cfg.dataset_name, 1)
         expected_kc_len  = window_size*avgkc*len(ds)*stdkcs
         max_kc_len = 100000
+        print('max_kc_len: ', max_kc_len)
+        print('expected_kc_len: ', expected_kc_len)
         if max_kc_len >= expected_kc_len:
             self.splits = [ds]
         else:

@@ -145,7 +145,7 @@ def read_tests(directory_path, full=False):
         columns = ['dataset', 'model', 'auc', 'acc']
         for k, timel in meta_data.items():
             print('### ', k)
-            row = [k[0], k[1]]
+            row = [k[0].replace('_','-'), k[1].replace('_','-')]
             for traintime, df in timel:
                 print('##### ', traintime)
                 print(df.mean())

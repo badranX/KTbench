@@ -143,6 +143,7 @@ class Trainer():
         if self.cfg.all_in_one:
             self.splits = self.split_test_ds()
             print('number of splits: ', len(self.splits))
+            print('all lens', list(map(len, self.splits)))
 
         
     def init_model(self):
@@ -170,7 +171,8 @@ class Trainer():
             import math
             num_splits = math.ceil(expected_kc_len/max_kc_len)
             split_size = math.ceil(len(ds)/num_splits)
-            splits = [(i*split_size, min((i+1)*max_kc_len, len(ds))) for i in range(num_splits)]
+            splits = [(i*split_size, min((i+1)*split_size, len(ds))) for i in range(num_splits)]
+            print(splits)
             if len(ds) != splits[-1][-1]:
                 splits.append((splits[-1][-1], len(ds)))
             self.splits = [ds.select(range(*x)) for x in splits]

@@ -30,6 +30,7 @@ class Params:
     n_blocks: float =1
     final_fc_dim: float = 512
     n_heads: float = 8
+    #d_ff: float = 2048
     d_ff: float = 2048
     separate_qa: bool = False
     model_type: str = 'akt'

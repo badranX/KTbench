@@ -30,7 +30,7 @@ dataset2gitbranch = {
 }
 
 dataset2stdkcs = {
-    'duolingo2018_es_en': 1.8
+    'duolingo2018_es_en': 1.0
 }
 
 def gitdownload(dataset_name, download_path):

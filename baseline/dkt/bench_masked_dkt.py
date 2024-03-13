@@ -23,18 +23,18 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
         n_epoch = 100
         lr = 0.001
 
-    prm = Params() 
-    cfg = Cfg()
-    prm.separate_qa = False
-    cfg.append2logdir = '_seperate_qa_True'
-    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = datasets)
     
-    print('start trining same model with _seperate_qa_False')
     prm = Params() 
     cfg = Cfg()
     prm.separate_qa = False
     cfg.append2logdir = '_seperate_qa_False'
     bench_model(cfg, Traincfg(), hyper_params=prm, datasets = datasets)
 
+    print('start trining same model with _seperate_qa_True')
+    prm = Params() 
+    cfg = Cfg()
+    prm.separate_qa = True
+    cfg.append2logdir = '_seperate_qa_True'
+    bench_model(cfg, Traincfg(), hyper_params=prm, datasets = datasets)
 if __name__ == '__main__':
     main()

@@ -17,8 +17,8 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
 
     @dataclass
     class Traincfg:
-        batch_size = 64
-        eval_batch_size = 64
+        batch_size = 24
+        eval_batch_size = 24
         n_epoch = 100
         lr = 0.001
     

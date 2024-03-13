@@ -29,6 +29,10 @@ dataset2gitbranch = {
     'algebra2005': 'data/algebra2005'
 }
 
+dataset2stdkcs = {
+    'duolingo2018_es_en': 1.5
+}
+
 def gitdownload(dataset_name, download_path):
     try: 
         branch = dataset2gitbranch[dataset_name]

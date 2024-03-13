@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader#, load_from_disk
 import datetime
 from ..trainlogs import LogsHandler
 from ..datapipeline.pipeline import Pipeline, rename_columns
+from ..datapipeline.middata_manager import dataset2stdkcs
 import os
 from dataclasses import dataclass
 import torch
@@ -157,9 +158,9 @@ class Trainer():
         ds = self.cfg.test_ds
         avgkc = self.cfg.avg_kc_per_exer
         window_size = self.cfg.window_size
-        expected_kc_len  = window_size*avgkc*len(ds)
-        #max_kc_len = 1000000
-        max_kc_len = 100000
+        stdkcs = dataset2stdkcs.get(self.cfg.dataset_name, 1)
+        expected_kc_len  = window_size*avgkc*len(ds)*stdkcs
+        max_kc_len = 1000000
         if max_kc_len >= expected_kc_len:
             self.splits = [ds]
         else:

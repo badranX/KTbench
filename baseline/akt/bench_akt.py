@@ -12,8 +12,8 @@ def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
         is_unfold = True
         all_in_one= True
 
-        eval_method = Pipeline.EVAL_UNFOLD_REDUCE
-        #eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL
+        #eval_method = Pipeline.EVAL_UNFOLD_REDUCE
+        eval_method = Pipeline.EVAL_UNFOLD_KC_LEVEL
         kfold = 5
 
     @dataclass

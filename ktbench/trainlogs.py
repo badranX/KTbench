@@ -109,7 +109,11 @@ import re
 
 def read_tests(directory_path, full=False):
     def extract_timestamp(folder_name):
-        return time.mktime(time.strptime(folder_name, '%Ss%Mm%Hh-%dD%mM%YY'))
+        try:
+            val = time.strptime(folder_name, '%Ss%Mm%Hh-%dD%mM%YY')
+            return time.mktime(val)
+        except:
+            return None
 
     timestamp_pattern = re.compile(r'\d{2}s\d{2}m\d{2}h-\d{2}D\d{2}M\d{4}Y')
 
@@ -122,9 +126,9 @@ def read_tests(directory_path, full=False):
         if dsdir.is_dir():
             #dataset dir
             for modeldir in dsdir.iterdir():
-                tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir()],
+                tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir() if extract_timestamp(timedir.name)],
                                                           key=lambda x: extract_timestamp(x.name),
-                                                          reverse=True)
+                                                          reverse=False)
 
                 timestamp_folders[(dsdir.name, modeldir.name)] = tmp
                 meta_data[(dsdir.name, modeldir.name)] = [(x.name, yamld.read_dataframe(x/'test.yaml')) for x in tmp if (x/'test.yaml').exists()]
@@ -151,6 +155,10 @@ def read_tests(directory_path, full=False):
                 print(df.mean())
                 results = df.mean()
                 row.extend([results['auc'], results['acc']])
+                if True:
+                    #only report recent logs
+                    break
+
             listoflists.append(row)
         df = pd.DataFrame(listoflists)
         df.columns = columns

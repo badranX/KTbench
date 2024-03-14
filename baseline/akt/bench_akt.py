@@ -1,6 +1,7 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
 from ktbench.datapipeline.pipeline import Pipeline
+
 from ktbench.model.akt.akt import AKT
 
 
@@ -18,8 +19,8 @@ def main(datasets=['duolingo2018_es_en']):
 
     @dataclass
     class Traincfg:
-        batch_size = 2
-        eval_batch_size = 2
+        batch_size = 24
+        eval_batch_size = 24
         n_epoch = 100
         lr = 0.001
     

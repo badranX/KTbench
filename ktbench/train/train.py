@@ -399,7 +399,7 @@ class Trainer():
             return self._evaluate(kfold, data_loader=self.test_dataloader, description=f"[Test fold {kfold}]")
         else:
             if self.is_test_all_in_one:
-                tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test all_in_one fold {kfold}]", eval_method=self.kc_eval)
+                tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test kc-level fold {kfold}]", eval_method=self.kc_eval)
                 print('[INFO] test kc_level: ', tmp)
 
                 tmp = self._evaluate(kfold, data_loader=self.test_test_dataloader, description=f"[test all_in_one fold {kfold}]", eval_method=self.reduce_eval)

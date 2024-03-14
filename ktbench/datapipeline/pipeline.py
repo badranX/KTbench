@@ -160,10 +160,6 @@ class Pipeline():
 
     @staticmethod
     def prepare_all_in_one(test_ds, cfg):
-        if getattr(cfg, 'is_test_all_in_one', False):
-            test_test_ds = copy.deepcopy(test_ds)
-            test_test_ds = rename_columns(test_test_ds, cfg.dataset2model_feature_map)
-            cfg.test_test_ds = test_test_ds
         new_column = range(len(test_ds))
         test_ds= test_ds.add_column("ktbench_idx", new_column)
         print('[INFO] start all_in_one test dataset processing...')
@@ -193,6 +189,12 @@ class Pipeline():
             valid_ds = valid_ds.select_columns(self.eval_tgt_features)
             if False and self.cfg.all_in_one:
                 test_ds = self.prepare_all_in_one(test_ds, self.cfg)
+
+             
+            if getattr(self.cfg, 'is_test_all_in_one', False):
+                test_test_ds = copy.deepcopy(test_ds)
+                test_test_ds = rename_columns(test_test_ds, self.cfg.dataset2model_feature_map)
+                self.cfg.test_test_ds = test_test_ds
 
             if not self.cfg.all_in_one:
                 test_ds = test_ds.select_columns(self.eval_tgt_features)

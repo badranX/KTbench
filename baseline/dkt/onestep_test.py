@@ -1,9 +1,10 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
-from ktbench.train import Trainer
+
 from ktbench.model.dkt.dkt import DKT
 
-def main(datasets=['test_assist2009']):
+from ktbench.datapipeline.pipeline import Pipeline
+def main(datasets=['assist2009']):
     @dataclass
     class Cfg:
         model_cls = DKT
@@ -13,7 +14,7 @@ def main(datasets=['test_assist2009']):
         is_test_all_in_one = True
         multi2one_kcs = True
 
-        eval_method = Trainer.EVAL_UNFOLD_REDUCE
+        eval_method = Pipeline.EVAL_UNFOLD_REDUCE
         kfold = 1
 
     @dataclass

@@ -26,6 +26,7 @@ dataset2gitbranch = {
     'corr_assist2009': 'data/corr_assist2009',
     'corr2_assist2009': 'data/corr2_assist2009',
     'duolingo2018_es_en': 'data/duolingo2018_es_en',
+    'riiid2020': 'data/2020',
     'algebra2005': 'data/algebra2005'
 }
 

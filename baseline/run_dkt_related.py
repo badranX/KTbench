@@ -5,7 +5,7 @@ from akt import bench_akt, bench_masked_akt
 datasets1 = ['duolingo2018_es_en', 'corr_assist2009']
 datasets2 = ['assist2009', 'algebra2005']
 bench_dkt.main(datasets1)
-bench_masked_dkt.main(datasets1)
+#bench_masked_dkt.main(datasets1)
 #round two
 bench_dkt.main(datasets2)
-bench_masked_dkt.main(datasets2)
+#bench_masked_dkt.main(datasets2)

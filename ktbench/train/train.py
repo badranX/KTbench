@@ -322,7 +322,7 @@ class Trainer():
             best_auc = -1
             best_epoch = -1
             for epoch in range(1, self.n_epoch+1):
-                losses = self.train(epoch)
+                losses = self.train(epoch, kfold)
                 evals = self.evaluate(epoch)
 
                 #log info
@@ -332,6 +332,7 @@ class Trainer():
                 evals['epoch'] = epoch
                 eval_logs.append(evals)
 
+                print(f"---KFOLD: {kfold}, MODEL: {self.model.__class__.__name__}, DATASET: {self.cfg.dataset_name}")
                 print(losses)
                 print(evals)
 
@@ -359,7 +360,7 @@ class Trainer():
             yamld.write_dataframe(self.logs.current_checkpoint_folder/f"test.yaml", pd.DataFrame(test_logs))
 
 
-    def train(self, epoch_num):
+    def train(self, epoch_num, kfold):
         self.model.train()
         losses = []
         for batch_id, batch in enumerate(tqdm(self.train_dataloader, desc= f"[EPOCH={epoch_num}]")):

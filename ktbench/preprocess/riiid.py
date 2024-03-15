@@ -29,6 +29,7 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
         ["timestamp"], ascending=True)
     train_df = train_df.reset_index(drop=True)
     train_df= train_df[["user_id", "content_id", "answered_correctly", "timestamp"]]
+    train_df = train_df[train_df["answered_correctly"] > -0.1]
     n_skills = train_df.content_id.nunique()
     print("no. of skills :", n_skills)
     print("shape after exlusion:", train_df.shape)

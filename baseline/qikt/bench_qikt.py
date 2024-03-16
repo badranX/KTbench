@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from ktbench.model.qikt.qikt import QIKT
 
 from ktbench.datapipeline.pipeline import Pipeline
-def main(datasets=['assist2009', 'algebra2005', 'duolingo2018_es_en']):
+def main(datasets=['assist2009', 'algebra2005', 'riiid2020', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
         model_cls = QIKT

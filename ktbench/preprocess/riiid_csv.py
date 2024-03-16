@@ -58,7 +58,7 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
     df_exer.attrs['feature2type'] = feature2type
     df_exer = df_exer[['question_id', 'tags']]
     df_exer.dropna(inplace=True)
-    df_exer['tags'] = df_exer['tags'].str.split()
+    #df_exer['tags'] = df_exer['tags'].str.split().apply(lambda x: int(x))
 
     #df_exer = df_exer[df_exer['tags'].apply(len).bool()]
     df_exer = df_exer.rename(columns={'question_id': 'exer_id',
@@ -80,10 +80,10 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
     
 
     Path(outputfolder).mkdir(parents=True, exist_ok=True)
-    group.to_csv(f"{outputfolder}/inter.csv")
+    group.to_csv(f"{outputfolder}/inter.csv", index=False)
     del group
     gc.collect()
-    df_exer.to_csv(f"{outputfolder}/exer.csv")
+    df_exer.to_csv(f"{outputfolder}/exer.csv", index=False)
     
     #yamld.write_dataframe(f"{outputfolder}/inter.yaml", df_inter)
     #yamld.write_dataframe(f"{outputfolder}/inter.yaml", df_inter)

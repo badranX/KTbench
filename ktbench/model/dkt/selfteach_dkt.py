@@ -19,7 +19,7 @@ class Params:
     num_layers = 1
     dropout_rate = 0.2
     rnn_or_lstm = 'lstm'
-    only_eval = True
+    only_eval = False
 
 
 

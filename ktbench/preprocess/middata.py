@@ -15,6 +15,11 @@ QUESTION_LEVEL_KEYS = ['ktbench_exer_seq', 'ktbench_kc_seq', 'ktbench_exer_seq_m
 
 CAT2ORIGINAL = 'original'
 
+FEATURE2TYPE = {
+    'stu_id': 'token', 'exer_id': 'token', 'label': 'float', 'start_timestamp': 'float', 'cost_time': 'float',
+                        'order_id': 'token',
+                         'kc_seq': 'token_seq', 'assignment_id': 'token_seq'
+    }
 
 def label2int(df, extras):
     df.label =  (df.label >= 0.5).astype(np.float32)
@@ -44,6 +49,7 @@ def normalize_time(df, extras):
     else:
         print("[WARNING] start_timestamp not in dataframe")
     return df, extras
+
 def _factorise_df(df, extras, already_factorized, feature2type, ignore=[]):
     #tokens
     extras[CAT2ORIGINAL] = extras.get(CAT2ORIGINAL, {})
@@ -98,25 +104,35 @@ def sort_by_orderid(df, extras):
 
 
 
-def is_middata_ready(middata_dir):
+def is_middata_ready(middata_dir, from_csv=False):
+    append = "csv" if from_csv else "yaml"
     middata_dir = Path(middata_dir)
-    exer = (middata_dir / "exer.yaml").exists()
+    exer = (middata_dir / f"exer.{append}").exists()
     #stu = (middata_dir / "stu.yaml").exists()
-    inter = (middata_dir / "inter.yaml").exists()
+    inter = (middata_dir / f"inter.{append}").exists()
     return exer and inter
 
-def read_middata(middata_dir="./middata"):
-    if not is_middata_ready(middata_dir=middata_dir):
+def read_middata(middata_dir="./middata", from_csv=False):
+    if not is_middata_ready(middata_dir=middata_dir, from_csv=from_csv):
         raise Exception("something is wrong with middata")
 
     print("reading datasets from middata...")
-    exer = yamld.read_dataframe(f"{middata_dir}/exer.yaml", encoding='utf-8')
-    inter = yamld.read_dataframe(f"{middata_dir}/inter.yaml", encoding='utf-8')
+    if from_csv:
+       exer = pd.read_csv(f"{middata_dir}/exer.csv", encoding='utf-8', low_memory=True) 
+       exer['kc_seq'] = exer['kc_seq'].str.split()
+       inter = pd.read_csv(f"{middata_dir}/inter.csv", encoding='utf-8', low_memory=True) 
+    else:
+        exer = yamld.read_dataframe(f"{middata_dir}/exer.yaml", encoding='utf-8')
+        inter = yamld.read_dataframe(f"{middata_dir}/inter.yaml", encoding='utf-8')
     stu_path = f"{middata_dir}/stu.yaml"
     ret = {'inter_df': inter, 'exer_df': exer}
     if Path(stu_path).exists():
-        stu = yamld.read_dataframe(stu_path, encoding='utf-8')
-        ret['stu_df'] = stu
+        if from_csv:
+           pd.read_csv(stu_path, encoding='utf-8', low_memory=True) 
+        else:
+            stu = yamld.read_dataframe(stu_path, encoding='utf-8')
+            ret['stu_df'] = stu
+        
     print("done reading middata...")
     return ret
 
@@ -198,10 +214,15 @@ def groupby_student(df, extras):
     meta['max_window_size'] = window_size
     return df, extras
 
-def process_middata(middata_dir= "./middata", outpath="./middata.yaml"):
+def process_middata(middata_dir= "./middata", outpath="./middata.yaml", from_csv=False):
     PIPELINE = [factorize, sort_by_orderid, gen_kc_seq, groupby_student]
     print("[Debug] processing from middata")
-    dfs = read_middata(middata_dir=middata_dir)
+    dfs = read_middata(middata_dir=middata_dir, from_csv=from_csv)
+    for df in dfs.values():
+        if not isinstance(df, pd.DataFrame):
+            continue
+        if 'feature2type' not in df.attrs:
+            df.attrs['feature2type'] = FEATURE2TYPE
     df = dfs['inter_df']
     extras = {'meta': {}}
     extras.update(dfs)
@@ -234,5 +255,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='process middata')
     parser.add_argument('directory', type=str, nargs='?', default='./middata', help='The target directory (default: ./middata)')
 
+    parser.add_argument("--csv", action="store_true", 
+					help="from a csv middata files") 
     args = parser.parse_args()
-    process_middata(middata_dir=args.directory)
+    process_middata(middata_dir=args.directory, from_csv=args.csv)

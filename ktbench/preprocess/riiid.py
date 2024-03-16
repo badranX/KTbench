@@ -9,7 +9,7 @@ import yamld
 
 OUTPUTFOLDER = "output"
 
-def process(datafolder="original_dataset", outputfolder="middata", encoding="latin-1"):
+def process(datafolder="original_dataset", outputfolder="middata", encoding="latin-1", full=False):
 
     dtypes = {'timestamp': 'int64', 'user_id': 'int32', 'content_id': 'int16',
               'answered_correctly': 'float32', "content_type_id": "int8",
@@ -17,7 +17,11 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
     print("loading csv.....")
     train_file =  Path(datafolder)/'train.csv'
     question_file =  Path(datafolder)/'questions.csv'
-    train_df = pd.read_csv(train_file, dtype=dtypes, nrows=1e6)
+    if full: 
+        train_df = pd.read_csv(train_file, dtype=dtypes, low_memory=True)#, nrows=1e6)
+    else:
+        train_df = pd.read_csv(train_file, dtype=dtypes, low_memory=True, nrows=1e6)
+        
     df_exer = pd.read_csv(question_file)
     print("shape of dataframe :", train_df.shape)
 
@@ -70,5 +74,9 @@ def process(datafolder="original_dataset", outputfolder="middata", encoding="lat
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='process middata')
     parser.add_argument('directory', type=str, default='middata', help='The target directory (default: ./middata)')
+    parser.add_argument("--full", action="store_true", 
+					help="full_dataset") 
     args = parser.parse_args()
-    process(datafolder=args.directory)
+    if args.full:
+        print('###using full dataset##')
+    process(datafolder=args.directory, full=args.full)

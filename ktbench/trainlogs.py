@@ -11,6 +11,13 @@ import time
 
 KTBENCH_FOLDER = ".ktbench"
 ENV_FOLDER = "KTBENCH_DIR"
+HUMAN2ABRV = {
+    'assist2009': 'AS09',
+    'corr2_assist2009': 'Synthetic',
+    'duolingo2018_es_en': 'DU18',
+    'riiid2020': 'RI20',
+    'algebra2005': 'AL05'
+}
 
 class LogsHandler:
     def __init__(self, config, checkpoint_parent_folder=None):
@@ -145,26 +152,91 @@ def read_tests(directory_path, full=False):
     else:
         import pandas as pd
         out_df = pd.DataFrame()
+        benchtable = {}
         listoflists = []
         columns = ['dataset', 'model', 'auc', 'acc']
+        multicolumns = set(['model'])
         for k, timel in meta_data.items():
             print('### ', k)
-            row = [k[0].replace('_','-'), k[1].replace('_','-')]
+            dataset_name =  k[0].replace('_','-')
+            model_name =  k[1].replace('_','-')
+            if model_name.lower().startswith('ignore') or dataset_name.lower().startswith('ignore'):
+                continue
+            row = [dataset_name, model_name]
+            bench = benchtable.get(model_name, {'model': model_name})
             for traintime, df in timel:
                 print('##### ', traintime)
                 print(df.mean())
                 results = df.mean()
+                auc = results['auc']
+                acc = results['acc']
                 row.extend([results['auc'], results['acc']])
+                bench[(dataset_name , ' auc')] = auc
+                bench[(dataset_name , ' acc')] = acc
                 if True:
                     #only report recent logs
                     break
+            
+            benchtable[model_name] = bench
 
             listoflists.append(row)
         df = pd.DataFrame(listoflists)
-        df.columns = columns
-        
         print(df.to_latex())
-                
+        print('---bench---table---')
+        print()
+        masked = set([v for v in benchtable.keys() if v.lower().startswith('mask')])
+        nomasked = set(benchtable.keys()) - masked
+        newrows = []
+        for k in nomasked:
+            newrows.append(k)
+            similar = [s for s in masked if k.lower() in s.lower()]
+            if similar:
+                mins = sorted(similar, key=lambda x: len(x))#[0]
+                for min in mins:
+                    newrows.append(min)
+                    masked.remove(min)
+        newrows = newrows + list(masked)
+        newrows = [benchtable[k] for k in newrows]
+            
+        df = pd.DataFrame(newrows)
+        
+        df.set_index('model', inplace=True)
+        df.index.name = 'Model'
+        if False:#+acc
+            # Set the 'Model' column as the index
+            
+            multicolumns.remove('model')
+            df.columns = pd.MultiIndex.from_tuples(df.columns)
+
+
+            # Convert DataFrame to LaTeX table format
+            latex = df.to_latex(
+                    index=True,
+                    escape=False,
+                    sparsify=True,
+                    multirow=True,
+                    multicolumn=True,
+                    multicolumn_format='c',
+                    #position='p',
+                    position='H',
+                    bold_rows=True
+                )
+        else:
+            df = df[[x for x in df.columns if x[-1].strip() == 'auc']]
+            df.columns = list(map(lambda x: '_'.join(x[0].split('-')[:-1]),
+                                   df.columns))
+            df.columns = [HUMAN2ABRV.get(k, k).replace('_', '-') for k in df.columns]
+
+            latex = df.to_latex(
+                    index=True,
+                    escape=False,
+                    #sparsify=True,
+                    #position='p',
+                    bold_rows=True
+                )
+            #latex = df.to_latex()
+        # Print LaTeX table
+        print(latex)
 
 
     return timestamp_folders

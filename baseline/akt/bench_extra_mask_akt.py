@@ -4,7 +4,7 @@ from ktbench.datapipeline.pipeline import Pipeline
 from ktbench.model.akt.extra_mask_akt import ExtraMaskAKT
 
 
-def main(datasets=['corr_assist2009', 'duolingo2018_es_en']):
+def main(datasets=['duolingo2018_es_en', 'corr2_assist2009', 'assist2009', 'algebra2005', 'riiid2020']):
     @dataclass
     class Cfg:
         model_cls = ExtraMaskAKT
@@ -17,8 +17,8 @@ def main(datasets=['corr_assist2009', 'duolingo2018_es_en']):
 
     @dataclass
     class Traincfg:
-        batch_size = 24
-        eval_batch_size = 24
+        batch_size = 8
+        eval_batch_size = 8
         n_epoch = 100
         lr = 0.001
     bench_model(Cfg(), Traincfg(), datasets = datasets)

@@ -133,6 +133,8 @@ def read_tests(directory_path, full=False):
         if dsdir.is_dir():
             #dataset dir
             for modeldir in dsdir.iterdir():
+                if not modeldir.is_dir():
+                    continue
                 tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir() if extract_timestamp(timedir.name)],
                                                           key=lambda x: extract_timestamp(x.name),
                                                           reverse=False)

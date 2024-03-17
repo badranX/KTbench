@@ -37,16 +37,16 @@ class Collate:
         #shape1s = map(len, tmp)
         ak = 'ktbench_attention_mask'
         max_seq = max(map(lambda x: len(x[ak]), batch))
-        f = lambda x: max_seq - x[ak].shape[0]
-        padseq = map(lambda x: F.pad(x, (0, f(x)), 'constant', 0), batch)
-        padseq = map(lambda x: F.pad(x.T, (0, f(x)).T, 'constant', 0), padseq)
+        f = lambda x: max_seq - x.shape[0]
+        padseq = map(lambda x: F.pad(x[ak], (0, f(x[ak])), 'constant', 0), batch)
+        padseq = map(lambda x: F.pad(x.T, (0, f(x)), 'constant', 0).T, padseq)
         #attention_seq = map(lambda x: list(x[ak]), batch)
         z = zip(*map(lambda x: x.values(), batch))
         batch = {k: pad_sequence(v, batch_first=True, padding_value=0)
                        if k in self.seqs else torch.stack(v)
                for k, v in zip(batch[0].keys(), z) if k != ak}
 
-        batch[ak] = padseq
+        batch[ak] = torch.stack(list(padseq))
         batch.update(lens)        
         return batch
 

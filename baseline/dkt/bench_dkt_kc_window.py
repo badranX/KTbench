@@ -19,7 +19,7 @@ def main(datasets=['assist2009', 'corr2_assist2009', 'algebra2005', 'riiid2020',
     class Traincfg:
         batch_size = 128
         eval_batch_size = 128
-        n_epoch = 1
+        n_epoch = 100
         lr = 0.001
     
     bench_model(Cfg(), Traincfg(), datasets = datasets)

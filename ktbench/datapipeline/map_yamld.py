@@ -135,30 +135,12 @@ def map_yamld_unfold(entry, meta, is_mask_label=False, is_teacher_mask=False, is
                         entry.teacher_unfold_seq_mask = (double_mask == 2).int()
 
         if is_attention:
-                #generate attention masks
-                #tmp = out_mask.unsqueeze(-1)*meta.kc_seq_mask[exer_unfold_seq,:]
-                #tmp = kc_seq_mask.unsqueeze(-1)*meta.kc_seq_mask[exer_unfold_seq,:]
-                #tmp = tmp.int()
-                tmp = kc_seq_mask.clone()
-                tmp = tmp[..., torch.arange(tmp.shape[-1]-1,-1,-1)]  #flipping kc sequences
-                tmp = tmp.unsqueeze(1).expand(tmp.shape[0],tmp.shape[-1], tmp.shape[-1]).reshape(-1, tmp.shape[-1])
 
-                unfold_seq_len, max_num_kcs  = exer_unfold_seq.shape[0], kc_seq.shape[-1]
-                #tmp_len =  max_num_kcs-1 + unfold_seq_len
-                #attention_mask = torch.zeros(unfold_seq_len, tmp_len).int()
-                max_unfold_len = kc_seq_mask.shape[0]*kc_seq_mask.shape[-1]
-                tmp_len =  kc_seq_mask.shape[0]-1 + max_unfold_len
-                attention_mask = torch.zeros(max_unfold_len, tmp_len).int()
-                idx = torch.arange(max_unfold_len).unsqueeze(1) + torch.arange(kc_seq_mask.shape[-1]).unsqueeze(0)
-                fidx = torch.arange(max_unfold_len).unsqueeze(1)
-                attention_mask[fidx, idx] = tmp
-                attention_mask = attention_mask[:,kc_seq_mask.shape[0]-1: ]
-                #idx = idx +kc_seq_mask.shape[0]-1
-                #idx = torch.clamp(idx, max=attention_mask.shape[-1]-1)
-                #attention_mask = attention_mask[fidx, idx]
-                #kc_seq_mask.reshape(-1).unsqueeze(-1)
-                attention_mask = attention_mask[kc_seq_mask.reshape(-1)==1, ...]
-                attention_mask = attention_mask[...,kc_seq_mask.reshape(-1)==1]
+                kc_group_seq = meta.kc_seq_mask[exer_unfold_seq,:]
+                group_lens = torch.arange(0, kc_group_seq.shape[0]) - kc_group_seq.sum(-1)
+                group_lens = torch.clamp(group_lens, min=0)
+                attention_mask = torch.arange(kc_group_seq.shape[0]).unsqueeze(0) < group_lens.unsqueeze(-1)
+                
                 entry.attention_mask = attention_mask
         
         

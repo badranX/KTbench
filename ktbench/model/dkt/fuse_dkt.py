@@ -70,22 +70,32 @@ class FuseDKT(BaseModel):
         output = self.dropout_layer(output)
         y_pd = self.fc_layer(output).sigmoid()
         
+        #y_pd[...,0] = y_pd[...,0]*0.
         #y_pd[...,0] = 0.
-        y_pd = y_pd[torch.arange(cpt_seq.shape[0])[...,None, None], torch.arange(cpt_seq.shape[1])[None,...,None], cpt_seq+1]
-        y_pd = y_pd.mean(-1)
+        idxs = cpt_seq[:, 1:] + 1
+        mask_res = cpt_seq_mask[:, 1:]
+        idxs = mask_res*idxs
+        y_pd = y_pd[:, :-1][torch.arange(idxs.shape[0])[...,None, None], torch.arange(idxs.shape[1])[None,...,None], idxs]
+        lens = mask_res.sum(-1)
+        y_pd = y_pd*mask_res
+        y_pd = y_pd.sum(-1)
 
+        ones= torch.ones_like(lens)
+        lens = lens*mask_seq[:,1:] + ones*(1-mask_seq[:,1:])
+        #y_pd = y_pd*mask_seq[:,1:]
+        y_pd = y_pd/lens 
         return y_pd
 
     @torch.no_grad()
     def ktbench_predict(self, **kwargs):
         y_pd = self(**kwargs)
-        y_pd = y_pd[:, :-1]
+        #y_pd = y_pd[:, :-1]
 
         return y_pd, slice(1, None)
 
     def losses(self, **kwargs):
         y_pd = self(**kwargs)
-        y_pd = y_pd[:, :-1]
+        #y_pd = y_pd[:, :-1]
         y_pd = y_pd[kwargs['mask_seq'][:, 1:] == 1]
         y_gt = kwargs['label_seq'][:, 1:]
         y_gt = y_gt[kwargs['mask_seq'][:, 1:] == 1]

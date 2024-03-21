@@ -1,4 +1,5 @@
-from dkt import bench_dkt, bench_masked_dkt
+from baseline.dkt import bench_mask_label_dkt
+from dkt import bench_dkt
 from akt import bench_akt, bench_masked_akt
 
 datasets = ['riiid2020']

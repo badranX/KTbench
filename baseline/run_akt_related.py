@@ -1,4 +1,5 @@
-from dkt import bench_dkt, bench_masked_dkt
+from baseline.dkt import bench_mask_label_dkt
+from dkt import bench_dkt
 from kqn import bench_kqn, bench_masked_kqn
 from akt import bench_akt, bench_masked_akt
 

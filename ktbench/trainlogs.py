@@ -114,7 +114,7 @@ from pathlib import Path
 import re
 
 
-def read_tests(directory_path, full=False):
+def read_tests(directory_path, latex=True, full=False):
     def extract_timestamp(folder_name):
         try:
             val = time.strptime(folder_name, '%Ss%Mm%Hh-%dD%mM%YY')
@@ -126,119 +126,188 @@ def read_tests(directory_path, full=False):
 
     directory_path = Path(directory_path)
 
-    timestamp_folders = {}
-    meta_data = {}
-
-    for dsdir in directory_path.iterdir():
-        if dsdir.is_dir():
-            #dataset dir
-            for modeldir in dsdir.iterdir():
-                if not modeldir.is_dir():
+    ds_groups = set([dsdir.name.split('_')[-1] for dsdir in directory_path.iterdir() if dsdir.is_dir()])
+    print("tables: ", ds_groups)
+    for ds_group in ds_groups:
+        timestamp_folders = {}
+        meta_data = {}
+        for dsdir in directory_path.iterdir():
+            if dsdir.is_dir():
+                if not dsdir.name.endswith(ds_group):
                     continue
-                tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir() if extract_timestamp(timedir.name)],
-                                                          key=lambda x: extract_timestamp(x.name),
-                                                          reverse=False)
+                #dataset dir
+                for modeldir in dsdir.iterdir():
+                    if not modeldir.is_dir():
+                        continue
+                    tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir() if extract_timestamp(timedir.name)],
+                                                              key=lambda x: extract_timestamp(x.name),
+                                                              reverse=False)
 
-                timestamp_folders[(dsdir.name, modeldir.name)] = tmp
-                meta_data[(dsdir.name, modeldir.name)] = [(x.name, yamld.read_dataframe(x/'test.yaml')) for x in tmp if (x/'test.yaml').exists()]
-                                                        
-                                                       
-    if full:
-        for modeldir, timel in timestamp_folders.items():
-            print('### ', modeldir)
-            for logdir in timel:
-                print('##### ', logdir.name)
-                testfile = logdir/'test.yaml'
-                if testfile.exists():
-                    print(open(testfile, 'r').read())
-    else:
-        import pandas as pd
-        out_df = pd.DataFrame()
-        benchtable = {}
-        listoflists = []
-        columns = ['dataset', 'model', 'auc', 'acc']
-        multicolumns = set(['model'])
-        for k, timel in meta_data.items():
-            print('### ', k)
-            dataset_name =  k[0].replace('_','-')
-            model_name =  k[1].replace('_','-')
-            if model_name.lower().startswith('ignore') or dataset_name.lower().startswith('ignore'):
-                continue
-            row = [dataset_name, model_name]
-            bench = benchtable.get(model_name, {'model': model_name})
-            for traintime, df in timel:
-                print('##### ', traintime)
-                print(df.mean())
-                results = df.mean()
-                auc = results['auc']
-                acc = results['acc']
-                row.extend([results['auc'], results['acc']])
-                bench[(dataset_name , ' auc')] = auc
-                bench[(dataset_name , ' acc')] = acc
-                if True:
-                    #only report recent logs
-                    break
-            
-            benchtable[model_name] = bench
-
-            listoflists.append(row)
-        df = pd.DataFrame(listoflists)
-        print(df.to_latex())
-        print('---bench---table---')
-        print()
-        masked = set([v for v in benchtable.keys() if v.lower().startswith('mask')])
-        nomasked = set(benchtable.keys()) - masked
-        newrows = []
-        for k in nomasked:
-            newrows.append(k)
-            similar = [s for s in masked if k.lower() in s.lower()]
-            if similar:
-                mins = sorted(similar, key=lambda x: len(x))#[0]
-                for min in mins:
-                    newrows.append(min)
-                    masked.remove(min)
-        newrows = newrows + list(masked)
-        newrows = [benchtable[k] for k in newrows]
-            
-        df = pd.DataFrame(newrows)
-        
-        df.set_index('model', inplace=True)
-        df.index.name = 'Model'
-        if False:#+acc
-            # Set the 'Model' column as the index
-            
-            multicolumns.remove('model')
-            df.columns = pd.MultiIndex.from_tuples(df.columns)
-
-
-            # Convert DataFrame to LaTeX table format
-            latex = df.to_latex(
-                    index=True,
-                    escape=False,
-                    sparsify=True,
-                    multirow=True,
-                    multicolumn=True,
-                    multicolumn_format='c',
-                    #position='p',
-                    position='H',
-                    bold_rows=True
-                )
+                    timestamp_folders[(dsdir.name, modeldir.name)] = tmp
+                    meta_data[(dsdir.name, modeldir.name)] = [(x.name, yamld.read_dataframe(x/'test.yaml')) for x in tmp if (x/'test.yaml').exists()]
+                                                            
+        if full:
+            for modeldir, timel in timestamp_folders.items():
+                print('### ', modeldir)
+                for logdir in timel:
+                    print('##### ', logdir.name)
+                    testfile = logdir/'test.yaml'
+                    if testfile.exists():
+                        print(open(testfile, 'r').read())
         else:
-            df = df[[x for x in df.columns if x[-1].strip() == 'auc']]
-            df.columns = list(map(lambda x: '_'.join(x[0].split('-')[:-1]),
-                                   df.columns))
-            df.columns = [HUMAN2ABRV.get(k, k).replace('_', '-') for k in df.columns]
+            import pandas as pd
+            out_df = pd.DataFrame()
+            benchtable = {}
+            listoflists = []
+            columns = ['dataset', 'model', 'auc', 'acc']
+            multicolumns = set(['model'])
+            for k, timel in meta_data.items():
+                if not latex:
+                    print('### ', k)
+                dataset_name =  k[0].replace('_','-')
+                model_name =  k[1].replace('_','-')
+                if model_name.lower().startswith('ignore') or dataset_name.lower().startswith('ignore'):
+                    continue
+                row = [dataset_name, model_name]
+                bench = benchtable.get(model_name, {'model': model_name})
+                for traintime, df in timel:
+                    if not latex:
+                        print('##### ', traintime)
+                        print(df.mean())
+                    results = df.mean()
+                    errs= df.sem()
+                    auc = results['auc']
+                    stderr = round(errs['auc'], 4)
 
-            latex = df.to_latex(
-                    index=True,
-                    escape=False,
-                    #sparsify=True,
-                    #position='p',
-                    bold_rows=True
-                )
-            #latex = df.to_latex()
-        # Print LaTeX table
-        print(latex)
+                    auc = '$' + str(auc) + '\pm' + str(stderr) + '$'
+                    acc = results['auc']
+                    row.extend([results['auc'], results['acc']])
+                    bench[(dataset_name , ' auc')] = auc
+                    bench[(dataset_name , ' acc')] = acc
+                    if True:
+                        #only report recent logs
+                        break
+                
+                benchtable[model_name] = bench
+
+                listoflists.append(row)
+            #df = pd.DataFrame(listoflists)
+            #print(df.to_latex())
+            #print('---bench---table---')
+            #print()
+            masked = set([v for v in benchtable.keys() if v.lower().startswith('mask')])
+            nomasked = set(benchtable.keys()) - masked
+            newrows = []
+            for k in nomasked:
+                newrows.append(k)
+                similar = [s for s in masked if k.lower() in s.lower()]
+                if similar:
+                    mins = sorted(similar, key=lambda x: len(x))#[0]
+                    for min in mins:
+                        newrows.append(min)
+                        masked.remove(min)
+            newrows = newrows + list(masked)
+            newrows = [benchtable[k] for k in newrows]
+                
+            df = pd.DataFrame(newrows)
+            
+            df.set_index('model', inplace=True)
+            df.index.name = 'Model'
+            if False:#+acc
+                # Set the 'Model' column as the index
+                
+                multicolumns.remove('model')
+                df.columns = pd.MultiIndex.from_tuples(df.columns)
+
+
+                # Convert DataFrame to LaTeX table format
+                latex = df.to_latex(
+                        index=True,
+                        escape=False,
+                        sparsify=True,
+                        multirow=True,
+                        multicolumn=True,
+                        multicolumn_format='c',
+                        #position='p',
+                        position='H',
+                        bold_rows=True
+                    )
+                print(latex)
+            else:
+                df = df[[x for x in df.columns if x[-1].strip() == 'auc']]
+                df.columns = list(map(lambda x: '_'.join(x[0].split('-')[:-1]),
+                                       df.columns))
+                df.columns = [HUMAN2ABRV.get(k, k).replace('_', '-') for k in df.columns]
+                print('####dataset columns#####')
+                print()
+                is_tmp = False
+                is_assist = False
+                is_dual = False
+                is_bench=False
+                if is_assist and "AS09" in df.columns and "Synthetic" in df.columns:
+                    df = df[["AS09", "Synthetic", "DU18"]]
+                    is_tmp =True
+                if is_dual and "AS09" in df.columns and "Synthetic" in df.columns:
+                    df = df[["DU18"]]
+                    is_tmp =True
+                if is_bench:
+                    try:
+                        df = df[["AS09", "AL05", "RI20"]]
+                    except:
+                        pass
+                 
+                latex = df.to_latex(
+                        index=True,
+                        escape=False,
+                        #sparsify=True,
+                        #position='p',
+                        bold_rows=True
+                    )
+                print(latex)
+                print('###TRANSPOSED####')
+                print()
+                df  = df.T 
+                if (is_assist or is_dual) and is_tmp:
+                    try:
+                        df = df[["DKT", 
+                                 "AKT", 
+                                 "SelfTeachDKT",
+                                 "MaskedDKT-seperate-qa-False",
+                                 "ExtraMaskAKT",
+                                 "MaskedAKT",
+                                 "FuseDKT",
+                                 ]]
+                    except Exception as e:
+                        print('err: ', df.columns)
+                        print()
+                if is_bench:
+                    try:
+                        df = df[["DKT", 
+                                 "AKT", 
+                                 "SelfTeachDKT",
+                                 "MaskedDKT-seperate-qa-False",
+                                 "ExtraMaskAKT",
+                                 "MaskedAKT",
+                                "DKVMN",
+                                "DeepIRT",
+                                "QIKT"
+                                 ]]
+                    except Exception as e:
+                        print('err: ', df.columns)
+                is_tmp = False 
+                is_assist= False
+                is_bench =False
+                latex = df.to_latex(
+                        index=True,
+                        escape=False,
+                        #sparsify=True,
+                        #position='p',
+                        bold_rows=True
+                    )
+                print(latex)
+
+                #latex = df.to_latex()
+            # Print LaTeX table
 
 
     return timestamp_folders
@@ -252,7 +321,8 @@ if __name__ == '__main__':
                         help="The directory to process (default: current working directory)")
 
     parser.add_argument("--full", action="store_true", help="Include full processing")
+    parser.add_argument("--latex", action="store_true", help="Include full processing")
 
     args =  parser.parse_args()
 
-    read_tests(args.directory, args.full)
+    read_tests(args.directory, args.latex, args.full)

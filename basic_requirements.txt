@@ -1,3 +1,0 @@
-datasets==2.18.0
-yamld==0.0.22
-GitPython==3.1.42

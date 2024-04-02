@@ -1,5 +1,5 @@
 # KTbench
-A knowledge tracing benchmark library mainly based on Pytorch and Hugging Face datasets.
+A knowledge tracing benchmark library. It is mainly based on Pytorch and Hugging Face datasets.
 
 ## Installation
 
@@ -63,3 +63,8 @@ By default a ".ktbench" folder is created, containing the experiment logs:
             ├── test.yaml          # Contains results on the test set.
             └── valid_fold_k.yaml  # Contains validation results on the kth fold during training.
 ```
+
+## Resources
+Useful tools for knowledge tracing:
+- [EduStudio](https://github.com/HFUT-LEC/EduStudio): A Unified Library for Student Cognitive Modeling including Cognitive Diagnosis (CD) and Knowledge Tracing (KT). 
+- [pykt-toolkit](https://github.com/pykt-team/pykt-toolkit):  A Python Library to Benchmark Deep Learning based Knowledge Tracing Models 

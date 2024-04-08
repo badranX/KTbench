@@ -48,14 +48,8 @@ class LogsHandler:
             return {x: getattr(obj, x) for x in dir(obj) if not x.startswith('__')}
         
         def imp(obj):
-            tmp= {k: v for k,v in vdir(obj).items() if isinstance(v, Number) or
-                     isinstance(v, bool) or
-                     isinstance(v, str) or
-                     isinstance(v, list) or
-                     isinstance(v, tuple) 
-                     }
-            tmp.update({k:list(v) for k,v in tmp.items() if isinstance(v, tuple)})
-            return tmp
+            print(obj.__dict__)
+            return {k: str(v) for k, v in vdir(obj).items()}
 
         yamld.write_metadata(self.current_checkpoint_folder/'traincfg.yaml', imp(traincfg))
         yamld.write_metadata(self.current_checkpoint_folder/'cfg.yaml', imp(cfg))

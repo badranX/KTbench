@@ -36,7 +36,7 @@ class Params:
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class ExtraMaskAKT(BaseModel):
+class AKT_QM(BaseModel):
     def __init__(self, cfg, params=Params()):
         super().__init__(cfg, params)
         self.__dict__.update(params.__dict__)

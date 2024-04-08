@@ -1,13 +1,13 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
 
-from ktbench.model.dkt.fuse_dkt import FuseDKT
+from ktbench.model.dkt.fuse_dkt import DKT_Fuse
 
 from ktbench.datapipeline.pipeline import Pipeline
 def main(datasets=['assist2009', 'corr2_assist2009', 'duolingo2018_es_en', 'algebra2005', 'riiid2020']):
     @dataclass
     class Cfg:
-        model_cls = FuseDKT
+        model_cls = DKT_Fuse
         window_size: int = 150
         is_unfold = False
 

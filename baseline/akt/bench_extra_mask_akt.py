@@ -1,13 +1,13 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
 from ktbench.datapipeline.pipeline import Pipeline
-from ktbench.model.akt.extra_mask_akt import ExtraMaskAKT
+from ktbench.model.akt.question_masked_akt import AKT_QM
 
 
 def main(datasets=['duolingo2018_es_en', 'corr2_assist2009', 'assist2009', 'algebra2005', 'riiid2020']):
     @dataclass
     class Cfg:
-        model_cls = ExtraMaskAKT
+        model_cls = AKT_QM
         window_size: int = 150
         is_attention = True
         is_unfold = True

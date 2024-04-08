@@ -22,7 +22,7 @@ class Params:
 
 
 
-class MaskedDKT(BaseModel):
+class DKT_ML(BaseModel):
 
     MODEL_FEATURE_MAP = {
          'ktbench_kc_unfold_seq' : 'exer_seq' ,

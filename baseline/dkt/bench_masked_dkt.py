@@ -1,8 +1,8 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
 from ktbench.datapipeline.pipeline import Pipeline
-from ktbench.model.dkt.masked_dkt import MaskedDKT
-from ktbench.model.dkt.masked_dkt import Params
+from ktbench.model.dkt.mask_label_dkt import MaskedDKT
+from ktbench.model.dkt.mask_label_dkt import Params
 
 
 def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):

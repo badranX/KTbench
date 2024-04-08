@@ -23,7 +23,7 @@ class Params:
 
 
 
-class SelfTeachDKT(BaseModel):
+class DKT_AD(BaseModel):
 
     MODEL_FEATURE_MAP = {
          'ktbench_kc_unfold_seq' : 'exer_seq' ,

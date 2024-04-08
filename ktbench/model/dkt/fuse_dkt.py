@@ -20,7 +20,7 @@ class Params:
     rnn_or_lstm = 'lstm'
 
 
-class FuseDKT(BaseModel):
+class DKT_Fuse(BaseModel):
     MODEL_FEATURE_MAP = {
         'ktbench_exer_seq': 'exer_seq' ,
         'ktbench_label_seq' : 'label_seq',

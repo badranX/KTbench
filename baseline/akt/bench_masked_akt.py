@@ -1,13 +1,13 @@
 from ktbench.run import bench_model
 from dataclasses import dataclass
 from ktbench.datapipeline.pipeline import Pipeline
-from ktbench.model.akt.masked_akt import MaskedAKT
+from ktbench.model.akt.mask_label_akt import AKT_ML
 
 
 def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:
-        model_cls = MaskedAKT
+        model_cls = AKT_ML
         window_size: int = 150
         add_mask_label = True
         is_unfold = True

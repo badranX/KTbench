@@ -1,0 +1,8 @@
+KTbench
+Copyright 2024 Yahya Badran
+
+This product might include code from EduStudio (MIT license)
+	* https://github.com/HFUT-LEC/EduStudio
+
+This product might include code from pykt-toolkit (MIT license)
+	* https://github.com/pykt-team/pykt-toolkit

@@ -5,14 +5,13 @@ from datasets import Dataset
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
+from sklearn.model_selection import train_test_split, KFold
 
 from ..pad_utils import splitter, padder, padder_list
 from .map_yamlx import unfold_mapper, map_yamlx, map_yamlx_unfold, features_to_tensors, lens2mask
 from .map_yamlx import map_allinone_batch, map_allinone_before_batch
 
 from .middata_manager import download_dataset, gitdownload
-from ..trainlogs import KTBENCH_FOLDER
-
 
 from sklearn.model_selection import KFold
 import shutil
@@ -24,6 +23,7 @@ import os
 from dataclasses import dataclass
 
 
+KTBENCH_DATASETS_FOLDER = ".datasets_ktbench"
 SEED = 42
 REDUCE_PREDICT_KEYS = ['ktbench_exer_seq_mask', 'ktbench_kc_seq_mask', 'ktbench_unfold_seq_mask', 'ktbench_label_seq'] 
 UNFOLD_KEYS = ['ktbench_exer_unfold_seq', 'ktbench_kc_unfold_seq', 'ktbench_unfold_seq_mask', 'ktbench_label_unfold_seq']
@@ -102,7 +102,7 @@ class Pipeline():
             self.dataset_dir = Path(cfg.dataset_path).parent
             self.yaml_dataset_path = Path(cfg.dataset_path)
         else:
-            self.dataset_dir  = Path.cwd() / KTBENCH_FOLDER
+            self.dataset_dir  = Path.cwd() / KTBENCH_DATASETS_FOLDER
             if not self.dataset_dir.exists():
                 self.dataset_dir.mkdir()
             self.yaml_dataset_path = self.dataset_dir / (self.dataset_name + '.yaml')
@@ -143,9 +143,10 @@ class Pipeline():
 
         else:
             tgt_features = QUESTION_LEVEL_KEYS + extra_features
-            eval_tgt_features = tgt_features
-        self.tgt_features = tgt_features
-        self.eval_tgt_features = eval_tgt_features
+            eval_tgt_features = tgt_features + ['ktbench_stu_id']
+        self.tgt_features = tgt_features + ['ktbench_stu_id']
+        self.eval_tgt_features = eval_tgt_features + ['ktbench_stu_id']
+
         self.cfg.eval_tgt_features = eval_tgt_features
 
 
@@ -170,16 +171,49 @@ class Pipeline():
         test_ds= test_ds.with_format("torch", device= cfg.device)
         return test_ds
     
+    def split_data_by_indices(self, df, test_ratio, n_splits=5):
+        # Step 1: Group by unique values and get original indices for each group
+        print("indexing dataframe columnds: ", df.columns)
+        grouped = df.groupby(df.columns[0]).apply(lambda x: x.index.tolist()).reset_index(name='indices')
+
+        # Step 2: Split into train/test sets
+        train_data, test_data = train_test_split(grouped, test_size=test_ratio, random_state=self.seed)
+        
+        # Extract indices for train and test sets
+        #train_indices = [idx for sublist in train_data['indices'] for idx in sublist]
+        test_indices = [idx for sublist in test_data['indices'] for idx in sublist]
+        #print('indices for test dataset: ', len(test_indices))
+        #print('indices for test dataset: ', test_data.columns)
+
+        # Step 3: Split train data into k-folds
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=self.seed)
+        train_folds = []
+        
+        for train_idx, val_idx in kf.split(train_data):
+            train_fold_indices = [idx for sublist in train_data.iloc[train_idx]['indices'] for idx in sublist]
+            val_fold_indices = [idx for sublist in train_data.iloc[val_idx]['indices'] for idx in sublist]
+            
+             # Collect indices for the current fold
+            train_fold_indices = [idx for sublist in train_data.iloc[train_idx]['indices'] for idx in sublist]
+            val_fold_indices = [idx for sublist in train_data.iloc[val_idx]['indices'] for idx in sublist]
+            train_folds.append((train_fold_indices, val_fold_indices))
+
+        return train_folds, test_indices
+    
+
+
     def split_dataset(self, ds):
         l_train_ds  = []
         l_valid_ds  = []
 
         ds = ds.shuffle(seed=self.seed)
         print('[INFO] total dataset lenght: ', len(ds))
-        
+
         test_per = self.splits[0]
+        
         train_valid_split_per = self.splits[1]
-        if self.kfolds == 1:
+        if False and self.kfolds == 1:
+            #TODO this is not used in the paper, split by students instead
             test_ds, extra_ds= ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
             train_ds, valid_ds = extra_ds.train_test_split(train_size=train_valid_split_per, shuffle=True, seed=self.seed).values()
             train_ds = train_ds.select_columns(self.tgt_features)
@@ -203,8 +237,11 @@ class Pipeline():
             l_valid_ds.append(valid_ds)
 
         else:
+            df = ds.select_columns(['ktbench_stu_id']).to_pandas()
+            test_per = self.splits[0]
+            train_folds, test_inds = self.split_data_by_indices(df, test_ratio=test_per, n_splits=self.kfolds)
+            test_ds = ds.select(test_inds)
 
-            test_ds, rest_ds = ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
 
             if False and self.cfg.all_in_one:
                 test_ds = self.prepare_all_in_one(test_ds, self.cfg)
@@ -213,11 +250,9 @@ class Pipeline():
                 test_ds = test_ds.select_columns(self.eval_tgt_features)
                 test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
 
-            folds = KFold(n_splits=self.kfolds, shuffle=True, random_state=self.seed)
-            splits = folds.split(np.zeros(rest_ds.num_rows))
-            for train_idxs, valid_idxs in splits:
-                train_ds = rest_ds.select(train_idxs)
-                valid_ds = rest_ds.select(valid_idxs)
+            for train_idxs, valid_idxs in train_folds:
+                train_ds = ds.select(train_idxs)
+                valid_ds = ds.select(valid_idxs)
                 valid_ds = valid_ds.select_columns(self.eval_tgt_features)
                 train_ds = train_ds.select_columns(self.tgt_features)
 
@@ -225,6 +260,13 @@ class Pipeline():
                 valid_ds = rename_columns(valid_ds, self.cfg.dataset2model_feature_map)
                 l_train_ds.append(train_ds)
                 l_valid_ds.append(valid_ds)
+
+        stu_id = 'ktbench_stu_id'
+        l_train_ds = [dds.remove_columns(['ktbench_stu_id']) if stu_id in dds.column_names else dds for dds in l_train_ds]
+        l_valid_ds = [dds.remove_columns(['ktbench_stu_id']) if stu_id in dds.column_names else dds for dds in l_valid_ds]
+
+        if stu_id in test_ds.column_names:
+            test_ds = test_ds.remove_columns(['ktbench_stu_id'])
 
         ret = {
             'train_ds' : l_train_ds,

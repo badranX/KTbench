@@ -10,6 +10,7 @@ import time
 
 
 KTBENCH_FOLDER = ".ktbench"
+KTBENCH_DATASETS_FOLDER = ".datasets_ktbench"
 ENV_FOLDER = "KTBENCH_DIR"
 HUMAN2ABRV = {
     'assist2009': 'AS09',

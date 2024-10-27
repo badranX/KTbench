@@ -124,6 +124,7 @@ class Trainer():
         self.device =cfg.device
         self.is_padded = getattr(traincfg, 'is_padded', False)
         self.kfolds = getattr(cfg, 'kfold', 1)
+        print("train kfolds: ", self.kfolds)
         self.is_attention= getattr(cfg, 'is_attention', False)
         self.n_stop_check = getattr(traincfg,'n_stop_check', 10)
         self.seed = getattr(self.cfg, 'seed', SEED)
@@ -191,6 +192,8 @@ class Trainer():
             extra = []
         #TODO add split train, valid, test extras
         seqs_train = extra + seqs + [v for v in self.cfg.train_ds[k].column_names if 'unfold' in v]
+        print('k :', k)
+        print('valid_ds :', len(self.cfg.valid_ds))
         seqs_valid = extra + seqs + [v for v in self.cfg.valid_ds[k].column_names if 'unfold' in v]
         seqs_test = extra + seqs + [v for v in self.cfg.test_ds.column_names if 'unfold' in v]
         clt_train = Collate(seqs = seqs_train, is_attention=self.is_attention)

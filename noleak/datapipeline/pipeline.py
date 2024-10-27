@@ -143,9 +143,9 @@ class Pipeline():
 
         else:
             tgt_features = QUESTION_LEVEL_KEYS + extra_features
-            eval_tgt_features = tgt_features + ['ktbench_stu_id']
-        self.tgt_features = tgt_features + ['ktbench_stu_id']
-        self.eval_tgt_features = eval_tgt_features + ['ktbench_stu_id']
+            eval_tgt_features = list(set(tgt_features + ['ktbench_stu_id']))
+        self.tgt_features = list(set(tgt_features + ['ktbench_stu_id']))
+        self.eval_tgt_features = list(set(eval_tgt_features + ['ktbench_stu_id']))
 
         self.cfg.eval_tgt_features = eval_tgt_features
 
@@ -262,8 +262,8 @@ class Pipeline():
                 l_valid_ds.append(valid_ds)
 
         stu_id = 'ktbench_stu_id'
-        l_train_ds = [dds.remove_columns(['ktbench_stu_id']) if stu_id in dds.column_names else dds for dds in l_train_ds]
-        l_valid_ds = [dds.remove_columns(['ktbench_stu_id']) if stu_id in dds.column_names else dds for dds in l_valid_ds]
+        l_train_ds = [dds.remove_columns([stu_id]) if stu_id in dds.column_names else dds for dds in l_train_ds]
+        l_valid_ds = [dds.remove_columns([stu_id]) if stu_id in dds.column_names else dds for dds in l_valid_ds]
 
         if stu_id in test_ds.column_names:
             test_ds = test_ds.remove_columns(['ktbench_stu_id'])

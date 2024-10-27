@@ -21,7 +21,7 @@ def main(datasets=['assist2009', 'corr2_assist2009', 'duolingo2018_es_en', 'alge
         #eval_method = Trainer.EVAL_UNFOLD_KC_LEVEL
         eval_method = Pipeline.EVAL_UNFOLD_REDUCE
         model_cls = DKT_AD
-
+        kfold = 5
 
     @dataclass
     class Traincfg:

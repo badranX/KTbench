@@ -311,11 +311,11 @@ class Trainer():
         }
 
 
-    def start(self):
+    def start(self, start_kfold=1):
         self.logs.train_starts(self.cfg.model_cls.__name__, self.traincfg, self.cfg)
         models = []
         test_logs = []
-        for kfold in range(1, self.kfolds + 1):
+        for kfold in range(start_kfold, self.kfolds + 1):
             self.init_model()
             self.init_dataloader(kfold)
             print(f"[INFO] training start at kfold {kfold} out of {self.kfolds} folds...")

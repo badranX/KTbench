@@ -10,7 +10,6 @@ import time
 
 
 KTBENCH_FOLDER = ".ktbench"
-KTBENCH_DATASETS_FOLDER = ".datasets_ktbench"
 ENV_FOLDER = "KTBENCH_DIR"
 HUMAN2ABRV = {
     'assist2009': 'AS09',
@@ -106,6 +105,78 @@ class LogsHandler:
 
 from pathlib import Path
 import re
+
+
+def simple_read_tests(directory_path, latex=True, full=False):
+    def extract_timestamp(folder_name):
+        try:
+            val = time.strptime(folder_name, '%Ss%Mm%Hh-%dD%mM%YY')
+            return time.mktime(val)
+        except:
+            return None
+
+    timestamp_pattern = re.compile(r'\d{2}s\d{2}m\d{2}h-\d{2}D\d{2}M\d{4}Y')
+
+    directory_path = Path(directory_path)
+
+    ds_groups = set([dsdir.name.split('_')[-1] for dsdir in directory_path.iterdir() if dsdir.is_dir()])
+    print("tables: ", ds_groups)
+    for ds_group in ds_groups:
+        timestamp_folders = {}
+        meta_data = dict()
+        for dsdir in directory_path.iterdir():
+            if dsdir.is_dir():
+                if not dsdir.name.endswith(ds_group):
+                    continue
+                #dataset dir
+                for modeldir in dsdir.iterdir():
+                    if not modeldir.is_dir():
+                        continue
+                    tmp = sorted([timedir for timedir in modeldir.iterdir() if timedir.is_dir() if extract_timestamp(timedir.name)],
+                                                              key=lambda x: extract_timestamp(x.name),
+                                                              reverse=False)
+
+                    timestamp_folders[(dsdir.name, modeldir.name)] = tmp
+                    meta_data[(dsdir.name, modeldir.name)] = [(x.name, yamlx.read_dataframe(x/'test.yaml')) for x in tmp if (x/'test.yaml').exists()]
+
+
+        # df = list(meta_data.values())[0][0][1]
+        # print(df)
+        # mean_sem_df = df.apply(lambda x: f"{x.mean():.4f} ± {x.sem():.4f}")
+
+        # print(mean_sem_df)
+        import pandas as pd
+        #out_df = pd.DataFrame()
+        columns = list(set([entry[0][0] for entry in meta_data.items()]))
+        index = list(set([entry[0][1] for entry in meta_data.items()]))
+        empty_df = pd.DataFrame([[1111 for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
+        for model_data, experiments in meta_data.items():
+            for name, exp_df in experiments:
+                print(model_data)
+                print(name)
+                print("len df: ", len(exp_df))
+                if 'kfold' not in exp_df.columns:
+                    print("ERROR: bad df...")
+                    print(exp_df)
+                    print("END ERROR: bad df...")
+                    continue
+                min_fold =  exp_df['kfold'].min()
+                max_fold =  exp_df['kfold'].max()
+                print("min fold: ", min_fold)
+                print("max fold: ", max_fold)
+                if 'auc' in exp_df.columns:
+                    exp_df = exp_df[['auc']]#,] 'acc']]
+                else:
+                    print('!!!!!!has no auc!!!!!!!')
+                    continue
+
+                mean_sem_df = exp_df.apply(lambda x: f"{x.mean():.4f} ± {x.sem():.4f}").item()
+                if min_fold == 1 and max_fold == 5:
+                    empty_df.loc[model_data[1], model_data[0]] = mean_sem_df
+                print(mean_sem_df)
+                print("-------")
+
+        print(empty_df)
 
 
 def read_tests(directory_path, latex=True, full=False):
@@ -319,4 +390,4 @@ if __name__ == '__main__':
 
     args =  parser.parse_args()
 
-    read_tests(args.directory, args.latex, args.full)
+    simple_read_tests(args.directory, args.latex, args.full)

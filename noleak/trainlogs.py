@@ -149,32 +149,39 @@ def simple_read_tests(directory_path, latex=True, full=False):
         #out_df = pd.DataFrame()
         columns = list(set([entry[0][0] for entry in meta_data.items()]))
         index = list(set([entry[0][1] for entry in meta_data.items()]))
-        empty_df = pd.DataFrame([[1111 for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
+        empty_df = pd.DataFrame([["1111" for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
         for model_data, experiments in meta_data.items():
             for name, exp_df in experiments:
-                print(model_data)
-                print(name)
-                print("len df: ", len(exp_df))
-                if 'kfold' not in exp_df.columns:
+                if 'kfold' not in exp_df.columns or 'auc' not in exp_df.columns:
                     print("ERROR: bad df...")
+                    print(model_data)
+                    print(name)
                     print(exp_df)
                     print("END ERROR: bad df...")
+                    print("-------")
                     continue
                 min_fold =  exp_df['kfold'].min()
                 max_fold =  exp_df['kfold'].max()
-                print("min fold: ", min_fold)
-                print("max fold: ", max_fold)
                 if 'auc' in exp_df.columns:
                     exp_df = exp_df[['auc']]#,] 'acc']]
                 else:
+                    print(model_data)
+                    print(name)
                     print('!!!!!!has no auc!!!!!!!')
                     continue
 
                 mean_sem_df = exp_df.apply(lambda x: f"{x.mean():.4f} ± {x.sem():.4f}").item()
                 if min_fold == 1 and max_fold == 5:
                     empty_df.loc[model_data[1], model_data[0]] = mean_sem_df
-                print(mean_sem_df)
-                print("-------")
+
+                if min_fold != 1 or max_fold != 5:
+                    print("min fold: ", min_fold)
+                    print("max fold: ", max_fold)
+                    print(model_data)
+                    print(name)
+                    print("len df: ", len(exp_df))
+                    print(mean_sem_df)
+                    print("-------")
 
         print(empty_df)
 

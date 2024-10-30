@@ -2,7 +2,6 @@
 
 Create a virtual environment then run the following from the project folder:
 ```console
-pip install -r requirements.txt
 pip install -e .
 python baseline/run.py
 ```

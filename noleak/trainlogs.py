@@ -149,7 +149,8 @@ def simple_read_tests(directory_path, latex=True, full=False):
         #out_df = pd.DataFrame()
         columns = list(set([entry[0][0] for entry in meta_data.items()]))
         index = list(set([entry[0][1] for entry in meta_data.items()]))
-        empty_df = pd.DataFrame([["1111" for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
+        mean_df = pd.DataFrame([[-111. for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
+        sem_df = pd.DataFrame([[-111. for i in range(len(columns))] for _ in range(len(index))], index=index, columns=columns)
         for model_data, experiments in meta_data.items():
             for name, exp_df in experiments:
                 if 'kfold' not in exp_df.columns or 'auc' not in exp_df.columns:
@@ -170,9 +171,12 @@ def simple_read_tests(directory_path, latex=True, full=False):
                     print('!!!!!!has no auc!!!!!!!')
                     continue
 
-                mean_sem_df = exp_df.apply(lambda x: f"{x.mean():.4f} ± {x.sem():.4f}").item()
+                #mean_sem_df = exp_df.apply(lambda x: f"{x.mean():.4f} ± {x.sem():.4f}").item()
+                mean_item = exp_df.apply(lambda x: x.mean()).item()
+                sem_item = exp_df.apply(lambda x: x.sem()).item()
                 if min_fold == 1 and max_fold == 5:
-                    empty_df.loc[model_data[1], model_data[0]] = mean_sem_df
+                    mean_df.loc[model_data[1], model_data[0]] = mean_item
+                    sem_df.loc[model_data[1], model_data[0]] = sem_item
 
                 if min_fold != 1 or max_fold != 5:
                     print("min fold: ", min_fold)
@@ -180,10 +184,35 @@ def simple_read_tests(directory_path, latex=True, full=False):
                     print(model_data)
                     print(name)
                     print("len df: ", len(exp_df))
-                    print(mean_sem_df)
+                    print("mean: ", mean_item )
+                    print("sem: ", sem_item )
                     print("-------")
 
-        print(empty_df)
+        print(sem_df.columns)
+
+        if True:
+            column_map = ['ASSISTments09', 'CorrAS09', 'Algebra05', 'Riiid20',  'Duoalingo2018']
+            data = [[rf'${round(x,4):.4f}\pm{round(sem,4):.4f}$' for x, sem in zip(row1[1], row2[1])] 
+            #data = [[x for x, sem in zip(row1, row2)] 
+                for row1, row2 in zip(mean_df.iterrows(), sem_df.iterrows()) ]
+
+            latex_ready_df = pd.DataFrame(data, 
+                index=mean_df.index, columns=mean_df.columns)
+
+            idxmax = mean_df.idxmax()
+            for idx in idxmax.index:
+                item = latex_ready_df.loc[idxmax[idx], idx]
+                latex_ready_df.loc[idxmax[idx], idx] = rf'\bm{{{str(item)}}}'
+        
+            latex_ready_df.index = latex_ready_df.index.map(lambda x: rf'\textbf{{{x}}}')
+            latex_ready_df.columns = latex_ready_df.columns.map(lambda x: 
+                [o for o in column_map if x.lower().startswith(o[:3].lower())][0])
+            #reorder columns
+            latex_ready_df = latex_ready_df[column_map]
+            latex_ready_df.to_pickle(directory_path.name + '.latex.pickle')
+            open('latex_output.tex', 'w').write(latex_ready_df.to_latex())
+        mean_df.to_pickle(directory_path.name + ".mean.pickle")
+        sem_df.to_pickle(directory_path.name + ".sem.pickle")
 
 
 def read_tests(directory_path, latex=True, full=False):

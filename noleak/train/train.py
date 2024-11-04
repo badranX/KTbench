@@ -315,7 +315,11 @@ class Trainer():
         self.logs.train_starts(self.cfg.model_cls.__name__, self.traincfg, self.cfg)
         models = []
         test_logs = []
-        for kfold in range(start_kfold, self.kfolds + 1):
+        
+        last_fold = self.kfolds + 1
+        if hasattr(self.cfg, 'last_fold'):
+            last_fold = self.cfg.last_fold + 1
+        for kfold in range(start_kfold, last_fold):
             self.init_model()
             self.init_dataloader(kfold)
             print(f"[INFO] training start at kfold {kfold} out of {self.kfolds} folds...")

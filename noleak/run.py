@@ -27,5 +27,5 @@ def bench_model(cfg, traincfg, datasets=None, hyper_params=None):
         print("training model:", cfg.model_cls.__name__)
         print("start training dataset", ds)
         cfg.dataset_name = ds 
-        init_datapipeline(cfg)
-        run_trainer(cfg, traincfg, hyper_params, kfold_start)
+        pipeline = init_datapipeline(cfg)
+        return run_trainer(cfg, traincfg, hyper_params, kfold_start), pipeline

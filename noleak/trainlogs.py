@@ -92,6 +92,20 @@ class LogsHandler:
 
         return model.to(device)
 
+    @staticmethod
+    def static_load_best_model(checkpoint_folder, ModelClass, kfold, device=None):
+        checkpoint_folder = Path(checkpoint_folder)
+        if device is None:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        best_model_filename = checkpoint_folder/f"best_model_fold_{kfold}.pth"
+
+        # Load best model state
+        checkpoint = torch.load(best_model_filename)
+        model = ModelClass(cfg=checkpoint['config'], params=checkpoint['prm'])
+        model.load_state_dict(checkpoint['model_state_dict'])
+
+        return model.to(device)
+
     def save_best_model(self, model, best_epoch, kfold):
         best_model_filename = self.current_checkpoint_folder/f"best_model_fold_{kfold}.pth"
 

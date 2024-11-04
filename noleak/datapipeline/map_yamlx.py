@@ -43,6 +43,13 @@ def features_to_tensors(entry):
         entry.update({k:torch.tensor(v, dtype=k2dtype[k]) 
                      for k, v in entry.items() if k in k2dtype})
 
+        if False:
+            problem2Vals_keys = {k: v for k, v in entry.items() if k.startswith('extra_problem2')}
+            for k, v in problem2Vals_keys.items():
+                tmp_name = k[len('extra_problem2'):]
+                meta.update({k: torch.tensor(v)})
+                setattr(entry, tmp_name, meta.kc_seq_padding[entry.exer_seq,:])
+
 
 def map_yamlx(entry, meta):
         """
@@ -62,6 +69,11 @@ def map_yamlx(entry, meta):
         entry.exer_seq_mask = lens2mask(entry.lens_seq, window_size)
         entry.__dict__.pop('lens_seq')
         entry.kc_seq = meta.kc_seq_padding[entry.exer_seq,:]
+        problem2Vals_keys = [k for k in meta.__dict__.keys() if k.startswith('extra_problem2')]
+        for k in problem2Vals_keys:
+            tmp_name = k[len('extra_problem2'):]
+            problem2Val_map = getattr(meta, k)
+            setattr(entry, tmp_name, problem2Val_map[entry.exer_seq,:])
 
         #TODO optimize meta mask calculations  max()
         #max_kcs_per_exer = meta.kc_seq_lens.max()

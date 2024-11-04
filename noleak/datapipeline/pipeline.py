@@ -317,6 +317,15 @@ class Pipeline():
         ds = Dataset.from_generator(readgen, cache_dir="./.cache_dir")
         return self.process_dataset(ds, meta)
 
+    def problem2Val(self, problem2Val):
+        if type(problem2Val) is dict:
+            problem2Val = {int(k): v for k, v in problem2Val.items()}
+            d = zip(*sorted(problem2Val.items(), key=lambda x: x[0]))
+            keys = next(d)
+            assert tuple(range(len(keys))) == keys
+            problem2Val = list(next(d))
+        return problem2Val
+
     def process_dataset(self, ds, meta):
         ds = ds.with_format("torch", device= self.process_device)
 
@@ -324,12 +333,8 @@ class Pipeline():
         ds = ds.map(map1, batched=True, remove_columns=ds.column_names)
 
         problem2KCs = meta['problem2KCs']
-        if type(problem2KCs) is dict:
-            problem2KCs = {int(k): v for k, v in problem2KCs.items()}
-            d = zip(*sorted(problem2KCs.items(), key=lambda x: x[0]))
-            keys = next(d)
-            assert tuple(range(len(keys))) == keys
-            problem2KCs = list(next(d))
+        print('first prob2kcs: ', problem2KCs[0])
+        problem2KCs = self.problem2Val(problem2KCs)
 
         if self.multi2one_kcs:
             problem2KCs = list(map(tuple, problem2KCs))
@@ -353,6 +358,21 @@ class Pipeline():
             max_kcs_per_exer = kc_seq_lens.max()
             meta['max_kcs_per_exer'] = max_kcs_per_exer
             meta['kc_seq_mask'] = lens2mask(kc_seq_lens, max_kcs_per_exer)
+        
+        problem2s_keys = [k for k in meta.keys() if k.startswith('extra_problem2')]
+        for k in problem2s_keys:
+            ##TODO Im asssuming padding value is 0
+            problem2Weights = meta[k]
+            problem2Weights = self.problem2Val(problem2Weights)
+            print('extra len: ', len(problem2Weights))
+            tmp_kc_seq_mask = meta['kc_seq_mask']
+            print('mask kcs shape: ', tmp_kc_seq_mask.shape)
+            print('first item: ', problem2Weights[0])
+            #print('first item: ', [x == y for x, y in zip(problem2Weights, problem2KCs)])
+            print('first mask: ', tmp_kc_seq_mask)
+            new_tmp = torch.zeros_like(tmp_kc_seq_mask).float()
+            new_tmp[tmp_kc_seq_mask==1] = torch.tensor([x for l in problem2Weights for x in l])
+            meta[k] = new_tmp
 
         meta['max_exer_window_size'] = self.window_size
         features_to_tensors(meta)

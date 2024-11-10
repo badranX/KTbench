@@ -170,7 +170,29 @@ class Pipeline():
         test_ds = test_ds.map(map_allinone_batch, batched=True, batch_size=1, remove_columns=test_ds.column_names)
         test_ds= test_ds.with_format("torch", device= cfg.device)
         return test_ds
+
+
     
+    def one_fold_split_data_by_indices(self, df, test_ratio, valid_ratio):
+        # Step 1: Group by unique values and get original indices for each group
+        print("indexing dataframe columnds: ", df.columns)
+        grouped = df.groupby(df.columns[0]).apply(lambda x: x.index.tolist()).reset_index(name='indices')
+
+        # Step 2: Split into train/test sets
+        rest_data, test_data = train_test_split(grouped, test_size=test_ratio, random_state=self.seed)
+
+        # Extract indices for train and test sets
+        #train_indices = [idx for sublist in train_data['indices'] for idx in sublist]
+        test_indices = [idx for sublist in test_data['indices'] for idx in sublist]
+        #print('indices for test dataset: ', len(test_indices))
+        #print('indices for test dataset: ', test_data.columns)
+
+        train_data, valid_data = train_test_split(rest_data, test_size=valid_ratio, random_state=self.seed)
+        train_indices = [idx for sublist in train_data['indices'] for idx in sublist]
+        valid_indices = [idx for sublist in valid_data['indices'] for idx in sublist]
+
+        return {'train' : train_indices, 'valid': valid_indices, 'test': test_indices}
+
     def split_data_by_indices(self, df, test_ratio, n_splits=5):
         # Step 1: Group by unique values and get original indices for each group
         print("indexing dataframe columnds: ", df.columns)
@@ -210,29 +232,34 @@ class Pipeline():
         print('[INFO] total dataset lenght: ', len(ds))
 
         test_per = self.splits[0]
+        print("SPLITS: ", self.splits)
         
-        train_valid_split_per = self.splits[1]
-        if False and self.kfolds == 1:
-            #TODO this is not used in the paper, split by students instead
-            test_ds, extra_ds= ds.train_test_split(train_size=test_per, shuffle=True, seed=self.seed).values()
-            train_ds, valid_ds = extra_ds.train_test_split(train_size=train_valid_split_per, shuffle=True, seed=self.seed).values()
-            train_ds = train_ds.select_columns(self.tgt_features)
-            valid_ds = valid_ds.select_columns(self.eval_tgt_features)
+        if self.kfolds == 1:
+            df = ds.select_columns(['ktbench_stu_id']).to_pandas()
+            test_per = self.splits[0]
+            valid_per = self.splits[1]
+            all_splits = self.one_fold_split_data_by_indices(df, test_ratio=test_per, valid_ratio=valid_per)
+            test_ds = ds.select(all_splits['test'])
+            train_ds = ds.select(all_splits['train'])
+            valid_ds = ds.select(all_splits['valid'])
+            print("train_ds len: ", len(train_ds))
+            print("valid_ds len: ", len(valid_ds))
+            print("test_ds len: ", len(test_ds))
+
+
             if False and self.cfg.all_in_one:
                 test_ds = self.prepare_all_in_one(test_ds, self.cfg)
-
-             
-            if getattr(self.cfg, 'is_test_all_in_one', False):
-                test_test_ds = copy.deepcopy(test_ds)
-                test_test_ds = rename_columns(test_test_ds, self.cfg.dataset2model_feature_map)
-                self.cfg.test_test_ds = test_test_ds
 
             if not self.cfg.all_in_one:
                 test_ds = test_ds.select_columns(self.eval_tgt_features)
                 test_ds = rename_columns(test_ds, self.cfg.dataset2model_feature_map)
 
+            valid_ds = valid_ds.select_columns(self.eval_tgt_features)
+            train_ds = train_ds.select_columns(self.tgt_features)
+
             train_ds = rename_columns(train_ds, self.cfg.dataset2model_feature_map)
             valid_ds = rename_columns(valid_ds, self.cfg.dataset2model_feature_map)
+
             l_train_ds.append(train_ds)
             l_valid_ds.append(valid_ds)
 

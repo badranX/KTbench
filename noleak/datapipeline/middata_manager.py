@@ -15,7 +15,7 @@ DATASET_URLs = {
     # Add more datasets as needed
 }
 
-GIT_REPO = 'https://github.com/submit-noname/KTdata'
+GIT_REPO = 'https://github.com/badranx/KTdata'
 
 dataset2gitbranch = {
     'AKT_assist2017': 'data/AKT_assist2017',

@@ -1,7 +1,7 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
-from noleak.train import Trainer
-from noleak.model.kqn.masked_kqn import MaskedKQN
+from ktbench.train import Trainer
+from ktbench.model.kqn.masked_kqn import MaskedKQN
 
 def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass

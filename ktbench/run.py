@@ -1,5 +1,5 @@
-from noleak.train import Trainer
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.train import Trainer
+from ktbench.datapipeline.pipeline import Pipeline
 
 
 def init_datapipeline(cfg):

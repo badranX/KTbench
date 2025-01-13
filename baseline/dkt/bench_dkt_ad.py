@@ -1,8 +1,8 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
 
-from noleak.model.dkt.dkt_ad import DKT_AD
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.model.dkt.dkt_ad import DKT_AD
+from ktbench.datapipeline.pipeline import Pipeline
 from dataclasses import dataclass
 
 

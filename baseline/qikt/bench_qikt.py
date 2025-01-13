@@ -1,9 +1,9 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
 
-from noleak.model.qikt.qikt import QIKT
+from ktbench.model.qikt.qikt import QIKT
 
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.datapipeline.pipeline import Pipeline
 def main(datasets=['assist2009', 'algebra2005', 'riiid2020', 'duolingo2018_es_en']):
     @dataclass
     class Cfg:

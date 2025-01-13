@@ -18,6 +18,7 @@ def bench_model(cfg, traincfg, datasets=None, hyper_params=None):
     if not datasets:
         datasets = [cfg.dataset_name]
         
+    trainers = []
     for ds in datasets:
         if isinstance(ds, tuple):
             kfold_start = ds[0]
@@ -28,4 +29,6 @@ def bench_model(cfg, traincfg, datasets=None, hyper_params=None):
         print("start training dataset", ds)
         cfg.dataset_name = ds 
         pipeline = init_datapipeline(cfg)
-        return run_trainer(cfg, traincfg, hyper_params, kfold_start), pipeline
+        trainers.append( run_trainer(cfg, traincfg, hyper_params, kfold_start))
+                       
+    return trainers, pipeline

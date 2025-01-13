@@ -20,9 +20,9 @@ By default a ".ktbench" folder is created, containing the experiment logs:
 ## Usage
 An example of training and evaluating a DKT with basic KC-expanded sequence
 ```python
-from noleak import Pipeline, bench_model
+from ktbench import Pipeline, bench_model
 from dataclasses import dataclass
-from noleak.model.dkt.dkt import DKT
+from ktbench.model.dkt.dkt import DKT
 
 @dataclass
 class Cfg:

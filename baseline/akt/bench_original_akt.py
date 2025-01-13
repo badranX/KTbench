@@ -3,12 +3,12 @@ Note: we implement preprocessing here in order to minmise the change to the orig
 """
 
 from torch.utils.data import DataLoader
-from noleak.trainlogs import LogsHandler
+from ktbench.trainlogs import LogsHandler
 import pandas as pd
 
-from noleak.model.akt.original_akt import AKT
-from noleak.train import Trainer
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.model.akt.original_akt import AKT
+from ktbench.train import Trainer
+from ktbench.datapipeline.pipeline import Pipeline
 from dataclasses import dataclass
 
 

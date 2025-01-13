@@ -1,9 +1,9 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
 
-from noleak.model.dkt.dkt import DKT
+from ktbench.model.dkt.dkt import DKT
 
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.datapipeline.pipeline import Pipeline
 def main(datasets=['assist2009']):
     @dataclass
     class Cfg:

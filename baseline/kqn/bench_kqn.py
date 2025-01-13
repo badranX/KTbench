@@ -1,7 +1,7 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
-from noleak.datapipeline.pipeline import Pipeline
-from noleak.model.kqn.kqn import KQN
+from ktbench.datapipeline.pipeline import Pipeline
+from ktbench.model.kqn.kqn import KQN
 
 def main(datasets=['assist2009', 'corr_assist2009', 'duolingo2018_es_en']):
     @dataclass

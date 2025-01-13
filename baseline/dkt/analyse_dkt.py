@@ -1,12 +1,12 @@
 from torch.utils.data import DataLoader
-from noleak.trainlogs import LogsHandler
+from ktbench.trainlogs import LogsHandler
 import pandas as pd
 import torch
 
 from collections import Counter
-from noleak.model.dkt.dkt import DKT
-from noleak.train import Trainer
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.model.dkt.dkt import DKT
+from ktbench.train import Trainer
+from ktbench.datapipeline.pipeline import Pipeline
 from dataclasses import dataclass
 
 

@@ -1,8 +1,8 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
-from noleak.datapipeline.pipeline import Pipeline
+from ktbench.datapipeline.pipeline import Pipeline
 
-from noleak.model.akt.akt import AKT
+from ktbench.model.akt.akt import AKT
 
 
 def main(datasets=['duolingo2018_es_en']):

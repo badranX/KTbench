@@ -1,7 +1,7 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
-from noleak.datapipeline.pipeline import Pipeline
-from noleak.model.akt.question_masked_akt import AKT_QM
+from ktbench.datapipeline.pipeline import Pipeline
+from ktbench.model.akt.question_masked_akt import AKT_QM
 
 
 def main(datasets=['duolingo2018_es_en', 'corr2_assist2009', 'assist2009', 'algebra2005', 'riiid2020']):

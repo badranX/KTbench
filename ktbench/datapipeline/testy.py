@@ -11,7 +11,7 @@ import sys
 # the mock-0.3.1 dir contains testcase.py, testutils.py & mock.py
 sys.path.append(config)
 print(config)
-from noleak import config
+from ktbench import config
 print(config.DATASETS_FOLDER)
 print(config.__name__)
 

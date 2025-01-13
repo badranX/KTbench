@@ -7,25 +7,20 @@ from baseline.deep_irt import bench_deep_irt
 
 datasets1 = ['assist2009', 'algebra2005']
 datasets2 = ['duolingo2018_es_en', 'corr_assist2009', 'riiid2020']
-datasets_oppose = [ 'corr_assist2009', 'riiid2020']
 datasets = datasets1 + datasets2
 
-qm = ['riiid2020',  'duolingo2018_es_en',(4, 'algebra2005'), 'corr_assist2009']
-
 #DKT related
-#bench_dkt_ml.main(datasets)
-# bench_dkt.main(datasets)
-#bench_dkt_ad.main(datasets)
-#bench_qikt.main(datasets2)
-#bench_fuse_dkt.main(datasets_oppose)
-
-bench_akt_qm.main(qm)
+bench_dkt_ml.main(datasets)
+bench_fuse_dkt.main(datasets)
+bench_dkt_ad.main(datasets)
+bench_dkt.main(datasets)
 
 #AKT related
-#bench_akt_ml.main(datasets)
-#bench_akt.main(datasets)
-#
-##DKVMN, DeepIRT, QIKT
-#bench_qikt.main(datasets)
-#bench_dkvmn.main(datasets)
-#bench_deep_irt.main(datasets)
+bench_akt_ml.main(datasets)
+bench_akt_qm.main(datasets)
+bench_akt.main(datasets)
+
+#DKVMN, DeepIRT, QIKT
+bench_qikt.main(datasets)
+bench_dkvmn.main(datasets)
+bench_deep_irt.main(datasets)

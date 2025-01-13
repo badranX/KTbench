@@ -1,7 +1,7 @@
-from noleak.run import bench_model
+from ktbench.run import bench_model
 from dataclasses import dataclass
-from noleak.train import Trainer
-from noleak.model.akt.attention_masked_akt import AKT_QM
+from ktbench.train import Trainer
+from ktbench.model.akt.attention_masked_akt import AKT_QM
 
 
 def main(datasets=['duolingo2018_es_en']):

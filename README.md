@@ -1,8 +1,16 @@
-## Installing, Training, and Evaluating the models from the paper
+# KTbench
+A knowledge tracing benchmark library. It is mainly based on Pytorch and Hugging Face datasets.
 
+## Installing
 Create a virtual environment then run the following from the project folder:
 ```console
-pip install -e .
+pip install .
+```
+
+## Reproducing the label leakage paper
+
+Run the following from the project folder:
+```console
 python baseline/run.py
 ```
 
@@ -43,3 +51,9 @@ bench_model(Cfg(), Traincfg(), datasets = ['assist2009'])
 
 ```
 
+## Resources
+Useful tools for knowledge tracing:
+- [EduStudio](https://github.com/HFUT-LEC/EduStudio): A Unified Library for Student Cognitive Modeling including Cognitive Diagnosis (CD) and Knowledge Tracing (KT). 
+- [pykt-toolkit](https://github.com/pykt-team/pykt-toolkit):  A Python Library to Benchmark Deep Learning based Knowledge Tracing Models 
+
+Some datapreprocessing and model implementations were adapted from these tools.

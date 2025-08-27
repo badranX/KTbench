@@ -1,5 +1,9 @@
 # KTbench
-A knowledge tracing benchmark library. It is mainly based on Pytorch and Hugging Face datasets.
+KTbench provides solutions to the label leakage problem in Knowledge Tracing models.  
+
+This project is based on the following papers:  
+- [Addressing Label Leakage in Knowledge Tracing Models](https://arxiv.org/abs/2403.15304)  
+- [Enhancing Knowledge Tracing through Leakage-Free and Recency-Aware Embeddings](https://arxiv.org/abs/2508.17092)
 
 ## Installing
 Create a virtual environment then run the following from the project folder:
@@ -56,4 +60,4 @@ Useful tools for knowledge tracing:
 - [EduStudio](https://github.com/HFUT-LEC/EduStudio): A Unified Library for Student Cognitive Modeling including Cognitive Diagnosis (CD) and Knowledge Tracing (KT). 
 - [pykt-toolkit](https://github.com/pykt-team/pykt-toolkit):  A Python Library to Benchmark Deep Learning based Knowledge Tracing Models 
 
-Some datapreprocessing and model implementations were adapted from these tools.
+Some data preprocessing and model implementations were adapted from these tools.
